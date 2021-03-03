@@ -51,10 +51,10 @@ namespace testlang
                 '+' => MakeToken(TokenType.Plus),
                 '/' => MakeToken(TokenType.Slash),
                 '*' => MakeToken(TokenType.Star),
-                '!' => MakeToken(Match('=') ? TokenType.BangEqual : TokenType.Bang),
-                '=' => MakeToken(Match('=') ? TokenType.EqualEqual : TokenType.Equal),
-                '<' => MakeToken(Match('=') ? TokenType.LessThanEqual : TokenType.LessThan),
-                '>' => MakeToken(Match('=') ? TokenType.GreaterThanEqual : TokenType.GreaterThan),
+                '!' => MakeToken2(Match('=') ? TokenType.BangEqual : TokenType.Bang),
+                '=' => MakeToken2(Match('=') ? TokenType.EqualEqual : TokenType.Equal),
+                '<' => MakeToken2(Match('=') ? TokenType.LessThanEqual : TokenType.LessThan),
+                '>' => MakeToken2(Match('=') ? TokenType.GreaterThanEqual : TokenType.GreaterThan),
                 '"' => String(),
                 _ => throw new ArgumentException($"Unknown char: {c}")
             };
@@ -112,6 +112,15 @@ namespace testlang
             var token = new Token(type, c.ToString());
             return token;
         }
+        
+        private static Token MakeToken2(TokenType type)
+        {
+            // TODO This function is only used for having a 2 char source
+            var start = _current - 2;
+            var str = _source[start.._current];
+            var token = new Token(type, str);
+            return token;
+        }
 
         private static void SkipWhitespace()
         {
@@ -129,7 +138,7 @@ namespace testlang
         private static bool Match(char expected)
         {
             if (IsAtEnd()) return false;
-            if (_current != expected) return false;
+            if (_source[_current] != expected) return false;
 
             _current += 1;
             return true;

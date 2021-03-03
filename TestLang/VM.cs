@@ -1,115 +1,186 @@
 using System;
 using System.Collections.Generic;
+using testlang.ast;
 
 namespace testlang
 {
     public class VM
     {
-        private Chunk Chunk;
-        private int Ip;
-        private Stack<Value> Stack = new Stack<Value>();
+        private Chunk _chunk;
+        private int _ip;
+        private Stack<Value> _stack = new Stack<Value>();
 
         public VM(Chunk chunk)
         {
-            this.Chunk = chunk;
-            this.Ip = 0;
+            _chunk = chunk;
+            _ip = 0;
         }
 
         public void Interpret()
         {
-            this.Run();
+            Run();
         }
 
-        public void Run()
+        private void Run()
         {
-            while (!this.IsAtEnd())
+            while (!IsAtEnd())
             {
-                var b = this.ReadByte();
+                var b = ReadByte();
 
                 switch ((OpCode) b)
                 {
                     case OpCode.Constant:
-                        var value = this.ReadConstant();
-                        this.Push(value);
+                        var value = ReadConstant();
+                        Push(value);
                         break;
                     case OpCode.Add:
-                        this.Add();
+                        Add();
                         break;
                     case OpCode.Subract:
-                        this.Subtract();
+                        Subtract();
                         break;
                     case OpCode.Multiply:
-                        this.Multiply();
+                        Multiply();
                         break;
                     case OpCode.Divide:
-                        this.Divide();
+                        Divide();
                         break;
                     case OpCode.Negate:
-                        var negate = this.Pop();
-                        negate.Node = -negate.Node;
-                        this.Push(negate);
+                        if (!Peek().IsNumber) throw new Exception(""); // TODO
+                        var negate = Pop().AsNumber;
+                        Push(Value.Number(-negate));
                         break;
                     case OpCode.Return:
-                        var popped = this.Pop();
-                        Console.WriteLine($"OpCode.Return: {popped}");
+                        var popped = Pop();
+                        Console.WriteLine($"OpCode.Return: {popped}"); // TODO
                         return;
+                    case OpCode.Print:
+                        Print();
+                        break;
+                    case OpCode.Not:
+                        Not();
+                        break;
+                    case OpCode.Equal:
+                        Equal();
+                        break;
+                    case OpCode.Greater:
+                        Greater();
+                        break;
+                    case OpCode.Less:
+                        Less();
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
             }
+        }
+        
+        private void Not()
+        {
+            Push(Value.Bool(IsFalsey(Pop())));
+        }
+        
+        private void Equal()
+        {
+            var bpopped = Pop();
+            var apopped = Pop();
+            Push(Value.Bool(ValuesEqual(apopped, bpopped)));
+        }
+        
+        private void Greater()
+        {
+            var bpopped = Pop().AsNumber;
+            var apopped = Pop().AsNumber;
+            Push(Value.Bool(apopped > bpopped));
+        }
+
+        private void Less()
+        {
+            var bpopped = Pop().AsNumber;
+            var apopped = Pop().AsNumber;
+            Push(Value.Bool(apopped < bpopped));
+        }
+
+        private void Print()
+        {
+            Console.WriteLine(Pop());
         }
 
         private void Add()
         {
-            var bpopped = this.Pop().Node;
-            var apopped = this.Pop().Node;
-            this.Push(new Value(apopped + bpopped));
+            var bpopped = Pop().AsNumber;
+            var apopped = Pop().AsNumber;
+            Push(Value.Number(apopped + bpopped));
         }
 
         private void Subtract()
         {
-            var bpopped = this.Pop().Node;
-            var apopped = this.Pop().Node;
-            this.Push(new Value(apopped + bpopped));
+            var bpopped = Pop().AsNumber;
+            var apopped = Pop().AsNumber;
+            Push(Value.Number(apopped - bpopped));
         }
 
         private void Multiply()
         {
-            var bpopped = this.Pop().Node;
-            var apopped = this.Pop().Node;
-            this.Push(new Value(bpopped - apopped));
+            var bpopped = Pop().AsNumber;
+            var apopped = Pop().AsNumber;
+            Push(Value.Number(apopped * bpopped));
         }
 
         private void Divide()
         {
-            var bpopped = this.Pop().Node;
-            var apopped = this.Pop().Node;
-            this.Push(new Value(bpopped * apopped));
+            var bpopped = Pop().AsNumber;
+            var apopped = Pop().AsNumber;
+            Push(Value.Number(bpopped / apopped));
+        }
+        
+        private bool IsFalsey(Value value) {
+            return value.IsNil || value.IsBool && !value.AsBool;
+        }
+        
+        private bool ValuesEqual(Value a, Value b)
+        {
+            if (a.Type != b.Type) return false;
+
+            return a.Type switch
+            {
+                ValueType.Bool => a.AsBool == b.AsBool,
+                ValueType.Nil => true,
+                ValueType.Number => a.AsNumber == b.AsNumber,
+            };
         }
 
         private Value ReadConstant()
         {
-            return this.Chunk.Constants[this.ReadByte()];
+            return _chunk.Constants[ReadByte()];
         }
 
         private byte ReadByte()
         {
-            var b = this.Chunk.Code[this.Ip];
-            this.Ip += 1;
+            var b = _chunk.Code[_ip];
+            _ip += 1;
             return b;
         }
 
         private bool IsAtEnd()
         {
-            return this.Ip >= this.Chunk.Code.Count;
+            return _ip >= _chunk.Code.Count;
         }
 
         private void Push(Value value)
         {
-            this.Stack.Push(value);
+            _stack.Push(value);
         }
 
+        private Value Peek()
+        {
+            return _stack.Peek();
+        }
+        
+        
         private Value Pop()
         {
-            return this.Stack.Pop();
+            return _stack.Pop();
         }
     }
 }

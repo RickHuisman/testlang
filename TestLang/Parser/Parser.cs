@@ -9,16 +9,13 @@ namespace testlang
 {
     public class Parser
     {
-        private List<Token> _tokens;
+        private static List<Token> _tokens;
 
-        public Parser(string source)
+        public static List<Statement> Parse(string source)
         {
             _tokens = Lexer.Parse(source);
             _tokens.Reverse();
-        }
-
-        public List<Statement> Parse()
-        {
+            
             var statements = new List<Statement>();
 
             while (HasNext())
@@ -30,12 +27,12 @@ namespace testlang
             return statements;
         }
 
-        private Statement ParseStatement()
+        private static Statement ParseStatement()
         {
             return Declaration();
         }
 
-        private Statement Declaration()
+        private static Statement Declaration()
         {
             Statement statement;
             switch (PeekType())
@@ -52,7 +49,7 @@ namespace testlang
             return statement;
         }
 
-        private Statement Statement()
+        private static Statement Statement()
         {
             Statement result;
             switch (PeekType())
@@ -64,27 +61,27 @@ namespace testlang
                 default:
                     result = ExpressionStatement();
                     break;
-                // throw new Exception(); // TODO custom
             }
 
             return result;
         }
 
-        private Statement PrintStatement()
+        private static Statement PrintStatement()
         {
             var val = ParseExpression(0);
+            Expect(TokenType.Semicolon); // TODO
             return new Print(val);
             // TODO Expect semicolon after expression
         }
 
-        private Statement ExpressionStatement()
+        private static Statement ExpressionStatement()
         {
             var expr = ParseExpression(0);
             Expect(TokenType.Semicolon); // TODO
             return new StatementExpr(expr);
         }
 
-        private Expression ParseExpression(int minBp)
+        private static Expression ParseExpression(int minBp)
         {
             var lhs = Next();
 
@@ -94,6 +91,18 @@ namespace testlang
                 case TokenType.Number:
                     var number = Convert.ToDouble(lhs.Source);
                     expr = new Expression(new Number(number));
+                    break;
+                case TokenType.True:
+                    expr = new Expression(new TrueLiteral());
+                    break;
+                case TokenType.False:
+                    expr = new Expression(new FalseLiteral());
+                    break;
+                case TokenType.Nil:
+                    expr = new Expression(new NilLiteral());
+                    break;
+                case TokenType.String:
+                    expr = new Expression(new StringLiteral(lhs.Source));
                     break;
                 case TokenType.Minus:
                 case TokenType.Bang:
@@ -118,7 +127,7 @@ namespace testlang
 
                 var binaryOp = op switch
                 {
-                    TokenType.Equal => BinaryOperator.Equal,
+                    TokenType.EqualEqual => BinaryOperator.Equal,
                     TokenType.BangEqual => BinaryOperator.BangEqual,
                     TokenType.GreaterThan => BinaryOperator.GreaterThan,
                     TokenType.GreaterThanEqual => BinaryOperator.GreaterThanEqual,
@@ -136,7 +145,7 @@ namespace testlang
             return expr;
         }
 
-        private Expression ParseUnaryExpression(TokenType lhs)
+        private static Expression ParseUnaryExpression(TokenType lhs)
         {
             var (_, rbp) = PrefixBindingPower(lhs);
             var rhs = ParseExpression(rbp);
@@ -149,7 +158,7 @@ namespace testlang
             return new Expression(new UnaryExpression(op, rhs));
         }
 
-        private (int, int) PrefixBindingPower(TokenType op)
+        private static (int, int) PrefixBindingPower(TokenType op)
         {
             return op switch
             {
@@ -159,7 +168,7 @@ namespace testlang
             };
         }
 
-        private (int, int) InfixBindingPower(TokenType op)
+        private static (int, int) InfixBindingPower(TokenType op)
         {
             return op switch
             {
@@ -178,29 +187,29 @@ namespace testlang
             };
         }
 
-        private Statement DeclareVar()
+        private static Statement DeclareVar()
         {
             throw new Exception();
         }
 
-        private bool HasNext()
+        private static bool HasNext()
         {
             return _tokens.Any();
         }
 
-        private Token Next()
+        private static Token Next()
         {
             var popped = _tokens[^1];
             _tokens.RemoveAt(_tokens.Count - 1);
             return popped;
         }
 
-        private TokenType PeekType()
+        private static TokenType PeekType()
         {
             return HasNext() ? _tokens[^1].Type : TokenType.EOF;
         }
 
-        private void Expect(TokenType expect)
+        private static void Expect(TokenType expect)
         {
             var next = PeekType();
             if (!expect.Equals(next))

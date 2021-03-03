@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using testlang;
@@ -51,6 +52,28 @@ namespace UnitTest
 
             var input = "\"test\" + 10;";
             var result = Lexer.Parse(input);
+            
+            Assert.That(expect, Is.EquivalentTo(result));
+        }
+        
+        [Test]
+        public void Parse_Boolean_ReturnsTokens()
+        {
+            var expect = new List<Token>
+            {
+                new Token(TokenType.True, "true"),
+                new Token(TokenType.BangEqual, "!="),
+                new Token(TokenType.False, "false"),
+                new Token(TokenType.Semicolon, ";"),
+            };
+
+            var input = "true != false;";
+            var result = Lexer.Parse(input);
+
+            foreach (var token in result)
+            {
+                Console.WriteLine(token);
+            }
             
             Assert.That(expect, Is.EquivalentTo(result));
         }

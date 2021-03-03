@@ -9,5 +9,10 @@ namespace testlang
         Divide,
         Negate,
         Return,
+        Print,
+        Equal,
+        Greater,
+        Less,
+        Not
     }
 }

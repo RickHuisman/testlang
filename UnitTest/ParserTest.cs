@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using testlang;
 using testlang.ast;
@@ -8,17 +9,79 @@ namespace UnitTest
     public class ParserTest
     {
         [Test]
+        public void Parse_StringExpr_ReturnsAst()
+        {
+            var expect = new List<Statement>
+            {
+                new StatementExpr(
+                    new Expression(
+                        new BinaryExpression(
+                            new Expression(new StringLiteral("test")),
+                            new Expression(new TrueLiteral()),
+                            BinaryOperator.Equal)
+                    )
+                )
+            };
+
+            var input = "\"test\" == true;";
+            var result = Parser.Parse(input);
+            
+            Assert.That(expect, Is.EquivalentTo(result));
+        }
+        
+        [Test]
+        public void Parse_BooleanExpr_ReturnsAst()
+        {
+            var expect = new List<Statement>
+            {
+                new StatementExpr(
+                    new Expression(
+                        new BinaryExpression(
+                            new Expression(new TrueLiteral()),
+                            new Expression(new FalseLiteral()),
+                            BinaryOperator.BangEqual)
+                    )
+                )
+            };
+
+            var input = "true != false;";
+            var result = Parser.Parse(input);
+            
+            Assert.That(expect, Is.EquivalentTo(result));
+        }
+        
+        [Test]
+        public void Parse_NilExpr_ReturnsAst()
+        {
+            var expect = new List<Statement>
+            {
+                new StatementExpr(
+                    new Expression(
+                        new BinaryExpression(
+                            new Expression(new NilLiteral()),
+                            new Expression(new FalseLiteral()),
+                            BinaryOperator.BangEqual)
+                    )
+                )
+            };
+
+            var input = "nil != false;";
+            var result = Parser.Parse(input);
+            
+            Assert.That(expect, Is.EquivalentTo(result));
+        }
+
+        [Test]
         public void Parse_NumbersExpr_ReturnsAst()
         {
             // var expect = new List()<Statement>
             // {
             //     new Print()
             // }
-            
+
             var input = "10 + 2";
-            var parser = new Parser(input);
-            var stmts = parser.Parse();
-            
+            var stmts = Parser.Parse(input);
+
             foreach (var stmt in stmts)
             {
                 Console.WriteLine($"Statement: {stmt}");

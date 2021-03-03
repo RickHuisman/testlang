@@ -6,7 +6,7 @@ namespace testlang.ast
 
     public class Print : Statement
     {
-        private Expression Expr { get; }
+        public Expression Expr { get; }
         
         public Print(Expression expr)
         {
@@ -21,7 +21,7 @@ namespace testlang.ast
 
     public class StatementExpr : Statement
     {
-        private Expression Expr { get; }
+        public Expression Expr { get; }
         
         public StatementExpr(Expression expr)
         {

@@ -11,7 +11,7 @@ namespace UnitTest
         [Test]
         public void Parse_StringExpr_ReturnsAst()
         {
-            var expect = new List<Statement>
+            var expected = new List<Statement>
             {
                 new StatementExpr(
                     new Expression(
@@ -24,15 +24,15 @@ namespace UnitTest
             };
 
             var input = "\"test\" == true;";
-            var result = Parser.Parse(input);
+            var actual = Parser.Parse(input);
             
-            Assert.That(expect, Is.EquivalentTo(result));
+            TestHelper.AreEqualByJson(expected, actual);
         }
-        
+
         [Test]
         public void Parse_BooleanExpr_ReturnsAst()
         {
-            var expect = new List<Statement>
+            var expected = new List<Statement>
             {
                 new StatementExpr(
                     new Expression(
@@ -45,15 +45,15 @@ namespace UnitTest
             };
 
             var input = "true != false;";
-            var result = Parser.Parse(input);
-            
-            Assert.That(expect, Is.EquivalentTo(result));
+            var actual = Parser.Parse(input);
+
+            TestHelper.AreEqualByJson(expected, actual);
         }
-        
+
         [Test]
         public void Parse_NilExpr_ReturnsAst()
         {
-            var expect = new List<Statement>
+            var expected = new List<Statement>
             {
                 new StatementExpr(
                     new Expression(
@@ -66,39 +66,65 @@ namespace UnitTest
             };
 
             var input = "nil != false;";
-            var result = Parser.Parse(input);
-            
-            Assert.That(expect, Is.EquivalentTo(result));
+            var actual = Parser.Parse(input);
+
+            TestHelper.AreEqualByJson(expected, actual);
         }
 
         [Test]
-        public void Parse_NumbersExpr_ReturnsAst()
+        public void Parse_VarStatement_ReturnsAst()
         {
-            // var expect = new List()<Statement>
-            // {
-            //     new Print()
-            // }
-
-            var input = "10 + 2";
-            var stmts = Parser.Parse(input);
-
-            foreach (var stmt in stmts)
+            var expected = new List<Statement>
             {
-                Console.WriteLine($"Statement: {stmt}");
-            }
+                new VarStatement(
+                    new Variable("test"),
+                    new Expression(new Number(10))
+                )
+            };
 
-            // var expect = new List<Token>
-            // {
-            //     new Token(TokenType.Number, "10"),
-            //     new Token(TokenType.Plus, "+"),
-            //     new Token(TokenType.Number, "5"),
-            //     new Token(TokenType.Semicolon, ";"),
-            // };
-            //
-            // var input = "10 + 5;";
-            // var result = Lexer.Parse(input);
-            //
-            // Assert.That(expect, Is.EquivalentTo(result));
+            var input = "var test = 10;";
+            var actual = Parser.Parse(input);
+
+            TestHelper.AreEqualByJson(expected, actual);
+        }
+        
+        [Test]
+        public void Parse_SetVarExpr_ReturnsAst()
+        {
+            var expected = new List<Statement>
+            {
+                new VarStatement(
+                    new Variable("test"),
+                    new Expression(new Number(10))
+                )
+            };
+
+            var input = @"var test = 10;
+x = 20;";
+            var actual = Parser.Parse(input);
+            Console.WriteLine(TestHelper.AsJson(actual));
+
+            // TestHelper.AreEqualByJson(expected, actual);
+        }
+        
+        [Test]
+        public void Parse_GetVarExpr_ReturnsAst()
+        {
+            var expected = new List<Statement>
+            {
+                new VarStatement(
+                    new Variable("test"),
+                    new Expression(new Number(10))
+                )
+            };
+
+            //var input = @"var test = 10;
+//print test;";
+            var input = "print 10;";
+            var actual = Parser.Parse(input);
+            Console.WriteLine(TestHelper.AsJson(actual));
+
+            // TestHelper.AreEqualByJson(expected, actual);
         }
     }
 }

@@ -75,4 +75,50 @@ namespace testlang.ast
             return $"Node: {Unary} - Operator: {Operator}";
         }
     }
+
+    public class VarExpression : ExpressionKind
+    {
+        public Variable Var;
+        
+        public VarExpression(Variable var)
+        {
+            Var = var;
+        }
+    }
+    
+    public class VarAssignExpression : ExpressionKind
+    {
+        public Variable Var;
+        public Expression Expr;
+        
+        public VarAssignExpression(Variable var, Expression expr)
+        {
+            Var = var;
+            Expr = expr;
+        }
+    }
+    
+    public class VarGetExpression : ExpressionKind
+    {
+        public Variable Var;
+        // public Expression Expr;
+        
+        public VarGetExpression(Variable var)
+        {
+            Var = var;
+            // Expr = expr;
+        }
+    }
+    
+    public class VarSetExpression : ExpressionKind
+    {
+        public Variable Var;
+        public Expression Expr;
+        
+        public VarSetExpression(Variable var, Expression expr)
+        {
+            Var = var;
+            Expr = expr;
+        }
+    }
 }

@@ -5,11 +5,11 @@ namespace testlang
 {
     public class Compiler
     {
-        public Chunk _chunk;
+        public Chunk _chunk; // TODO Make private
         
         public Compiler()
         {
-            _chunk = new Chunk("test");
+            _chunk = new Chunk("test"); // TODO
         }
 
         public void Compile(string source)
@@ -26,15 +26,35 @@ namespace testlang
         {
             switch (statement)
             {
+                case VarStatement var:
+                    CompileVarExpr(var);
+                    break;
                 case StatementExpr expr:
                     CompileExpr(expr.Expr);
-                    // TODO Pop
+                    Emit(OpCode.Pop);
                     break;
                 case Print expr:
                     CompileExpr(expr.Expr);
                     Emit(OpCode.Print);
                     break;
             }
+        }
+
+        private void CompileVarExpr(VarStatement var)
+        {
+            // TODO Check if initialized -> if not init with nil
+            CompileExpr(var.Expr);
+            DefineVar(var.Variable);
+        }
+
+        private void DefineVar(Variable varVariable)
+        {
+            // TODO only global
+            Emit(OpCode.DefineGlobal);
+            
+            var strVal = Value.Obj(ObjString.CopyString(varVariable.Name));
+            var constant = _chunk.AddConstant(strVal);
+            _chunk.WriteChunk((byte) constant);
         }
 
         private void CompileExpr(Expression expr)
@@ -47,6 +67,21 @@ namespace testlang
                 case Literal literal:
                     EmitLiteral(literal);
                     break;
+                case VarSetExpression set:
+                    CompileExpr(set.Expr);
+                    Emit(OpCode.SetGlobal);
+                    var strVal2 = Value.Obj(ObjString.CopyString(set.Var.Name));
+                    var constant2 = _chunk.AddConstant(strVal2);
+                    _chunk.WriteChunk((byte) constant2);
+                    break;
+                case VarGetExpression get:
+                    Emit(OpCode.GetGlobal);
+                    var strVal = Value.Obj(ObjString.CopyString(get.Var.Name));
+                    var constant = _chunk.AddConstant(strVal);
+                    _chunk.WriteChunk((byte) constant);
+                    break;
+                default:
+                    throw new Exception($"TODO {expr.Node}");
             }
         }
 
@@ -79,7 +114,7 @@ namespace testlang
                     Emit(OpCode.Not);
                     break;
                 case BinaryOperator.Minus:
-                    Emit(OpCode.Subract);
+                    Emit(OpCode.Subtract);
                     break;
                 case BinaryOperator.Plus:
                     Emit(OpCode.Add);
@@ -109,7 +144,8 @@ namespace testlang
                     EmitConstant(Value.Bool(false));
                     break;
                 case StringLiteral str:
-                    EmitConstant(Value.Obj(ObjString.CopyString(str.Value)));
+                    // EmitConstant(Value.Obj(ObjString.CopyString(str.Value)));
+                    throw new ArgumentOutOfRangeException(); // TODO
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(); // TODO

@@ -9,6 +9,7 @@ namespace testlang
         private Chunk _chunk;
         private int _ip;
         private Stack<Value> _stack = new Stack<Value>();
+        private Dictionary<string, Value> _globals = new Dictionary<string, Value>();
 
         public VM(Chunk chunk)
         {
@@ -36,7 +37,7 @@ namespace testlang
                     case OpCode.Add:
                         Add();
                         break;
-                    case OpCode.Subract:
+                    case OpCode.Subtract:
                         Subtract();
                         break;
                     case OpCode.Multiply:
@@ -69,12 +70,52 @@ namespace testlang
                     case OpCode.Less:
                         Less();
                         break;
+                    case OpCode.Pop:
+                        Pop();
+                        break;
+                    case OpCode.DefineGlobal:
+                        DefineGlobal();
+                        break;
+                    case OpCode.GetGlobal:
+                        GetGlobal();
+                        break;
+                    case OpCode.SetGlobal:
+                        SetGlobal();
+                        break;
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
             }
         }
-        
+
+        private void SetGlobal()
+        {
+            var name = ReadConstant().AsString;
+            var value = Peek();
+            if (_globals.ContainsKey(name.ToString()))
+            {
+                _globals[name.ToString()] = value;
+            }
+            else
+            {
+                throw new Exception($"No global with name: {name}");
+            }
+        }
+
+        private void GetGlobal()
+        {
+            var name = ReadConstant().AsString;
+            var value = _globals.GetValueOrDefault(name.ToString()); // TODO error if not found
+            Push(value);
+        }
+
+        private void DefineGlobal()
+        {
+            var name = ReadConstant().AsString;
+            _globals.Add(name.ToString(), Peek());
+            Pop();
+        }
+
         private void Not()
         {
             Push(Value.Bool(IsFalsey(Pop())));
@@ -176,7 +217,6 @@ namespace testlang
         {
             return _stack.Peek();
         }
-        
         
         private Value Pop()
         {

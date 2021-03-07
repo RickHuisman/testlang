@@ -13,7 +13,7 @@ namespace testlang
             Source = source;
         }
 
-        public override bool Equals(object other)
+        public override bool Equals(object other)  // TODO is used
         {
             if (other is Token token)
             {

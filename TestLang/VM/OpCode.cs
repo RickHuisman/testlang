@@ -4,7 +4,7 @@ namespace testlang
     {
         Constant,
         Add,
-        Subract,
+        Subtract,
         Multiply,
         Divide,
         Negate,
@@ -13,6 +13,10 @@ namespace testlang
         Equal,
         Greater,
         Less,
-        Not
+        Not,
+        Pop,
+        DefineGlobal,
+        GetGlobal,
+        SetGlobal,
     }
 }

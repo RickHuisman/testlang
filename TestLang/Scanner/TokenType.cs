@@ -75,7 +75,7 @@ namespace testlang
                 "true" => TokenType.True,
                 "var" => TokenType.Var,
                 "while" => TokenType.While,
-                _ => throw new ArgumentOutOfRangeException(nameof(str), str, null)
+                _ => TokenType.Identifier,
             };
         }
     }

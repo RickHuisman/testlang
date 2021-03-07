@@ -71,12 +71,11 @@ namespace testlang
             var val = ParseExpression(0);
             Expect(TokenType.Semicolon); // TODO
             return new Print(val);
-            // TODO Expect semicolon after expression
         }
 
         private static Statement ExpressionStatement()
         {
-            var expr = ParseExpression(0);
+            var expr = ParseExpression(0); // TODO pass precedence
             Expect(TokenType.Semicolon); // TODO
             return new StatementExpr(expr);
         }
@@ -107,6 +106,26 @@ namespace testlang
                 case TokenType.Minus:
                 case TokenType.Bang:
                     expr = ParseUnaryExpression(lhs.Type);
+                    break;
+                case TokenType.Identifier:
+                    if (PeekType() is TokenType.Equal)
+                    {
+                        // Set
+                        
+                        // Pop '=' operator
+                        Next();
+
+                        var rhs = ParseExpression(0);
+                        
+                        var var = new Variable(lhs.Source);
+                        expr = new Expression(new VarSetExpression(var, rhs));
+                    }
+                    else
+                    {
+                        // Get
+                        var var = new VarGetExpression(new Variable(lhs.Source));
+                        expr = new Expression(var); // TODO
+                    }
                     break;
                 default:
                     throw new Exception($"Token not covered: {lhs}");
@@ -183,13 +202,24 @@ namespace testlang
                 TokenType.Star => Precedence.PREC_FACTOR,
                 TokenType.Slash => Precedence.PREC_FACTOR,
                 TokenType.Semicolon => Precedence.PREC_NONE,
+                TokenType.Equal => Precedence.PREC_ASSIGNMENT, // TODO correct???
                 _ => throw new Exception($"Bad op: {op}")
             };
         }
 
         private static Statement DeclareVar()
         {
-            throw new Exception();
+            var ident = Expect(TokenType.Identifier);
+            var initializer = new Expression(new NilLiteral());
+
+            if (PeekType() is TokenType.Equal)
+            {
+                Next();
+                initializer = ParseExpression(0);
+            }
+            Expect(TokenType.Semicolon);
+            
+            return new VarStatement(new Variable(ident.Source), initializer);
         }
 
         private static bool HasNext()
@@ -209,15 +239,15 @@ namespace testlang
             return HasNext() ? _tokens[^1].Type : TokenType.EOF;
         }
 
-        private static void Expect(TokenType expect)
+        private static Token Expect(TokenType expect)
         {
             var next = PeekType();
             if (!expect.Equals(next))
             {
-                throw new Exception("TODO"); // TODO
+                throw new Exception($"Next is {next} not {expect}"); // TODO
             }
 
-            Next();
+            return Next();
         }
     }
 }

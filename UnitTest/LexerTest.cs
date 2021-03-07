@@ -10,7 +10,7 @@ namespace UnitTest
         [Test]
         public void Parse_Numbers_ReturnsTokens()
         {
-            var expect = new List<Token>
+            var expected = new List<Token>
             {
                 new Token(TokenType.Number, "10"),
                 new Token(TokenType.Plus, "+"),
@@ -19,30 +19,30 @@ namespace UnitTest
             };
 
             var input = "10 + 5;";
-            var result = Lexer.Parse(input);
+            var actual = Lexer.Parse(input);
             
-            Assert.That(expect, Is.EquivalentTo(result));
+            TestHelper.AreEqualByJson(expected, actual);
         }
         
         [Test]
         public void Parse_String_ReturnsTokens()
         {
-            var expect = new List<Token>
+            var expected = new List<Token>
             {
                 new Token(TokenType.String, "test"),
                 new Token(TokenType.Semicolon, ";"),
             };
 
             var input = "\"test\";";
-            var result = Lexer.Parse(input);
+            var actual = Lexer.Parse(input);
             
-            Assert.That(expect, Is.EquivalentTo(result));
+            TestHelper.AreEqualByJson(expected, actual);
         }
         
         [Test]
         public void Parse_StringAndNumber_ReturnsTokens()
         {
-            var expect = new List<Token>
+            var expected = new List<Token>
             {
                 new Token(TokenType.String, "test"),
                 new Token(TokenType.Plus, "+"),
@@ -51,15 +51,15 @@ namespace UnitTest
             };
 
             var input = "\"test\" + 10;";
-            var result = Lexer.Parse(input);
+            var actual = Lexer.Parse(input);
             
-            Assert.That(expect, Is.EquivalentTo(result));
+            TestHelper.AreEqualByJson(expected, actual);
         }
         
         [Test]
         public void Parse_Boolean_ReturnsTokens()
         {
-            var expect = new List<Token>
+            var expected = new List<Token>
             {
                 new Token(TokenType.True, "true"),
                 new Token(TokenType.BangEqual, "!="),
@@ -68,14 +68,33 @@ namespace UnitTest
             };
 
             var input = "true != false;";
-            var result = Lexer.Parse(input);
+            var actual = Lexer.Parse(input);
 
-            foreach (var token in result)
+            TestHelper.AreEqualByJson(expected, actual);
+        }
+
+
+        [Test]
+        public void Parse_SetVar_ReturnsTokens()
+        {
+            var expected = new List<Token>
             {
-                Console.WriteLine(token);
-            }
-            
-            Assert.That(expect, Is.EquivalentTo(result));
+                new Token(TokenType.Var, "var"),
+                new Token(TokenType.Identifier, "test"),
+                new Token(TokenType.Equal, "="),
+                new Token(TokenType.Number, "10"),
+                new Token(TokenType.Semicolon, ";"),
+                new Token(TokenType.Identifier, "test"),
+                new Token(TokenType.Equal, "="),
+                new Token(TokenType.Number, "20"),
+                new Token(TokenType.Semicolon, ";"),
+            };
+
+            var input = @"var test = 10;
+x = 20;";
+            var actual = Lexer.Parse(input);
+
+            TestHelper.AreEqualByJson(expected, actual);
         }
     }
 }

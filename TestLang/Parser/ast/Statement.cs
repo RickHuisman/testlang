@@ -33,4 +33,31 @@ namespace testlang.ast
             return $"[Expr {Expr}]";
         }
     }
+    
+    public class VarStatement : Statement
+    {
+        public Variable Variable { get; }
+        public Expression Expr { get; }
+
+        public VarStatement(Variable variable, Expression expr)
+        {
+            Variable = variable;
+            Expr = expr;
+        }
+        
+        public override string ToString()
+        {
+            return $"[VarStatement {Expr}]";
+        }
+    }
+
+    public class Variable
+    {
+        public string Name { get; }
+
+        public Variable(string name)
+        {
+            Name = name;
+        }
+    }
 }

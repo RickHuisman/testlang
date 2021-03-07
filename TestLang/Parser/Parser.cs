@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using testlang.ast;
 using BinaryExpression = testlang.ast.BinaryExpression;
 using Expression = testlang.ast.Expression;
@@ -70,12 +71,55 @@ namespace testlang
                     Next();
                     result = WhileStatement();
                     break;
+                case TokenType.For:
+                    Next();
+                    result = ForStatement();
+                    break;
                 default:
                     result = ExpressionStatement();
                     break;
             }
 
             return result;
+        }
+
+        private static Statement ForStatement()
+        {
+            Expect(TokenType.LeftParen);
+            
+            // Initializer
+            Statement initializer = null;
+            if (Match(TokenType.Semicolon))
+            {
+                // No initializer.
+            } else if (Match(TokenType.Var))
+            {
+                initializer = DeclareVar();
+            }
+            else
+            {
+                initializer = ExpressionStatement();
+            }
+
+            // Condition
+            Expression condition = null;
+            if (!Match(TokenType.Semicolon))
+            {
+                condition = ParseExpression(0);
+                Expect(TokenType.Semicolon);
+            }
+            
+            // Increment
+            Expression increment = null;
+            if (!Match(TokenType.RightParen))
+            {
+                increment = ParseExpression(0);
+                Expect(TokenType.RightParen);
+            }
+            
+            var body = ParseStatement();
+
+            return new ForStatement(initializer, condition, increment, body);
         }
 
         private static Statement WhileStatement()
@@ -293,6 +337,21 @@ namespace testlang
         private static TokenType PeekType()
         {
             return HasNext() ? _tokens[^1].Type : TokenType.EOF;
+        }
+
+        private static bool Match(TokenType type)
+        {
+            if (!Check(type)) {
+                return false;
+            }
+
+            Next();
+            return true;
+        }
+        
+        private static bool Check(TokenType type)
+        {
+            return PeekType() == type;
         }
 
         private static Token Expect(TokenType expect)

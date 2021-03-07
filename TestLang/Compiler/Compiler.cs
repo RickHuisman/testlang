@@ -56,9 +56,66 @@ namespace testlang
                 case WhileStatement whileStmt:
                     CompileWhile(whileStmt);
                     break;
+                case ForStatement forStmt:
+                    CompileFor(forStmt);
+                    break;
                 default:
                     throw new Exception($"TODO {statement}");
             }
+        }
+
+        private void CompileFor(ForStatement forStmt)
+        {
+            BeginScope();
+            if (forStmt.VarDeclaration != null)
+            {
+                if (forStmt.VarDeclaration is VarStatement statement)
+                {
+                    // Declare var
+                    CompileVarExpr(statement);
+                }
+                else
+                {
+                    // Expression
+                    CompileStatement(forStmt.VarDeclaration);
+                }
+            }
+            
+            var loopStart = _chunk.Code.Count;
+
+            var exitJump = -1;
+            if (forStmt.Condition != null)
+            {
+                CompileExpr(forStmt.Condition);
+                
+                // Jump out of loop if condition is false
+                exitJump = EmitJump(OpCode.JumpIfFalse);
+                Emit(OpCode.Pop);
+            }
+
+            if (forStmt.Increment != null)
+            {
+                var bodyJump = EmitJump(OpCode.Jump);
+                
+                var incrementStart = _chunk.Code.Count;
+                CompileExpr(forStmt.Increment);
+                Emit(OpCode.Pop);
+                
+                EmitLoop(loopStart);
+                loopStart = incrementStart;
+                PatchJump(bodyJump);
+            }
+            
+            CompileStatement(forStmt.Body);
+            
+            EmitLoop(loopStart);
+            
+            if (exitJump != -1) {
+                PatchJump(exitJump);
+                Emit(OpCode.Pop);
+            }
+
+            EndScope();
         }
 
         private void CompileWhile(WhileStatement whileStmt)

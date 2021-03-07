@@ -111,4 +111,20 @@ namespace testlang.ast
             ThenClause = thenClause;
         }
     }
+
+    public class ForStatement : Statement
+    {
+        public Statement VarDeclaration;
+        public Expression Condition;
+        public Expression Increment;
+        public Statement Body;
+
+        public ForStatement(Statement varDeclaration, Expression condition, Expression increment, Statement body)
+        {
+            VarDeclaration = varDeclaration;
+            Condition = condition;
+            Increment = increment;
+            Body = body;
+        }
+    }
 }

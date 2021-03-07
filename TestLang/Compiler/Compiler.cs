@@ -3,13 +3,20 @@ using testlang.ast;
 
 namespace testlang
 {
+    // TODO Make singleton
     public class Compiler
     {
         public Chunk _chunk; // TODO Make private
+        private Local[] _locals;
+        private int _localCount;
+        private int _scopeDepth;
         
         public Compiler()
         {
             _chunk = new Chunk("test"); // TODO
+            _locals = new Local[byte.MaxValue];
+            _localCount = 0;
+            _scopeDepth = 0;
         }
 
         public void Compile(string source)
@@ -37,24 +44,76 @@ namespace testlang
                     CompileExpr(expr.Expr);
                     Emit(OpCode.Print);
                     break;
+                case BlockStatement block:
+                    CompileBlock(block);
+                    break;
+                default:
+                    throw new Exception($"TODO {statement}");
             }
+        }
+
+        private void CompileBlock(BlockStatement block)
+        {
+            BeginScope();
+            foreach (var stmt in block.Statements)
+            {
+                CompileStatement(stmt);
+            }
+            EndScope();
         }
 
         private void CompileVarExpr(VarStatement var)
         {
             // TODO Check if initialized -> if not init with nil
             CompileExpr(var.Expr);
-            DefineVar(var.Variable);
+
+            if (_scopeDepth > 0)
+            {
+                // Local
+                DeclareVar(var.Variable);
+            }
+            else
+            {
+                // Global
+                DefineVar(var.Variable);
+            }
         }
 
-        private void DefineVar(Variable varVariable)
+        private void DefineVar(Variable variable)
         {
+            if (_scopeDepth > 0) return;
+            
             // TODO only global
             Emit(OpCode.DefineGlobal);
             
-            var strVal = Value.Obj(ObjString.CopyString(varVariable.Name));
+            var strVal = Value.Obj(ObjString.CopyString(variable.Name));
             var constant = _chunk.AddConstant(strVal);
             _chunk.WriteChunk((byte) constant);
+        }
+
+        private void DeclareVar(Variable variable)
+        {
+            if (_scopeDepth == 0) return;
+
+            for (var i = _localCount - 1; i >= 0; i -= 1) {
+                var local = _locals[i];
+                if (local.Depth != -1 && local.Depth < _scopeDepth) {
+                    break;
+                }
+
+                if (variable.Name == local.Name)
+                {
+                    throw new Exception($"Already a variable called {variable.Name} in this scope.");
+                }
+            }
+            
+            AddLocal(variable.Name);
+            MarkInitialized();
+        }
+
+        private void AddLocal(string name)
+        {
+            _locals[_localCount++] = new Local(name, -1);
         }
 
         private void CompileExpr(Expression expr)
@@ -69,16 +128,41 @@ namespace testlang
                     break;
                 case VarSetExpression set:
                     CompileExpr(set.Expr);
-                    Emit(OpCode.SetGlobal);
-                    var strVal2 = Value.Obj(ObjString.CopyString(set.Var.Name));
-                    var constant2 = _chunk.AddConstant(strVal2);
-                    _chunk.WriteChunk((byte) constant2);
+
+                    var arg = ResolveLocal(set.Var.Name);
+                    if (arg != -1)
+                    {
+                        // Local
+                        Emit(OpCode.SetLocal);
+                        _chunk.WriteChunk((byte) arg);
+                    }
+                    else
+                    {
+                        // Global
+                        Emit(OpCode.SetGlobal);
+                        var strVal2 = Value.Obj(ObjString.CopyString(set.Var.Name));
+                        var constant2 = _chunk.AddConstant(strVal2);
+                        _chunk.WriteChunk((byte) constant2);
+                    }
+                    
                     break;
                 case VarGetExpression get:
-                    Emit(OpCode.GetGlobal);
-                    var strVal = Value.Obj(ObjString.CopyString(get.Var.Name));
-                    var constant = _chunk.AddConstant(strVal);
-                    _chunk.WriteChunk((byte) constant);
+                    var arg2 = ResolveLocal(get.Var.Name);
+                    if (arg2 != -1)
+                    {
+                        // Local
+                        Emit(OpCode.GetLocal);
+                        _chunk.WriteChunk((byte) arg2); // TODO
+                    }
+                    else
+                    {
+                        // Global
+                        Emit(OpCode.GetGlobal);
+                        var strVal = Value.Obj(ObjString.CopyString(get.Var.Name));
+                        var constant = _chunk.AddConstant(strVal);
+                        _chunk.WriteChunk((byte) constant);
+                    }
+
                     break;
                 default:
                     throw new Exception($"TODO {expr.Node}");
@@ -127,6 +211,45 @@ namespace testlang
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        private int ResolveLocal(string name) {
+            for (var i = _localCount - 1; i >= 0; i -= 1) {
+                var local = _locals[i];
+                if (name == local.Name) {
+                    if (local.Depth == -1) {
+                        throw new Exception($"Can't read local variable {name} in it's own initializer.");
+                    }
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+        
+        private void MarkInitialized()
+        {
+            if (_scopeDepth == 0) {
+                return;
+            }
+            _locals[_localCount - 1].Depth = _scopeDepth;
+        }
+
+        private void BeginScope()
+        {
+            _scopeDepth += 1;
+        }
+        
+        private void EndScope()
+        {
+            _scopeDepth -= 1;
+
+            while (_localCount > 0 &&
+                   _locals[_localCount - 1].Depth > _scopeDepth)
+            {
+                Emit(OpCode.Pop);
+                _localCount -= 1;
             }
         }
 

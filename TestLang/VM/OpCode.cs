@@ -18,5 +18,7 @@ namespace testlang
         DefineGlobal,
         GetGlobal,
         SetGlobal,
+        GetLocal,
+        SetLocal
     }
 }

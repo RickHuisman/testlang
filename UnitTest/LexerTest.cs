@@ -96,5 +96,27 @@ x = 20;";
 
             TestHelper.AreEqualByJson(expected, actual);
         }
+        
+        [Test]
+        public void Parse_Block_ReturnsTokens()
+        {
+            var expected = new List<Token>
+            {
+                new Token(TokenType.LeftBrace, "{"),
+                new Token(TokenType.Var, "var"),
+                new Token(TokenType.Identifier, "x"),
+                new Token(TokenType.Equal, "="),
+                new Token(TokenType.Number, "10"),
+                new Token(TokenType.RightBrace, "}"),
+                new Token(TokenType.Semicolon, ";"),
+            };
+
+            var input = @"{
+var x = 10;
+}";
+            var actual = Lexer.Parse(input);
+
+            TestHelper.AreEqualByJson(expected, actual);
+        }
     }
 }

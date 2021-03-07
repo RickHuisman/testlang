@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using testlang.ast;
 
 namespace testlang
@@ -8,7 +9,8 @@ namespace testlang
     {
         private Chunk _chunk;
         private int _ip;
-        private Stack<Value> _stack = new Stack<Value>();
+        private Value[] _stack = new Value[byte.MaxValue]; // TODO size
+        private int _stackTop = 0;
         private Dictionary<string, Value> _globals = new Dictionary<string, Value>();
 
         public VM(Chunk chunk)
@@ -47,7 +49,7 @@ namespace testlang
                         Divide();
                         break;
                     case OpCode.Negate:
-                        if (!Peek().IsNumber) throw new Exception(""); // TODO
+                        if (!Peek(0).IsNumber) throw new Exception(""); // TODO
                         var negate = Pop().AsNumber;
                         Push(Value.Number(-negate));
                         break;
@@ -82,16 +84,34 @@ namespace testlang
                     case OpCode.SetGlobal:
                         SetGlobal();
                         break;
+                    case OpCode.GetLocal:
+                        GetLocal();
+                        break;
+                    case OpCode.SetLocal:
+                        SetLocal();
+                        break;
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
             }
         }
 
+        private void GetLocal()
+        {
+            var slot = ReadByte();
+            Push(_stack.ElementAt(slot));
+        }
+
+        private void SetLocal()
+        {
+            var slot = ReadByte();
+            _stack[slot] = Peek(0);
+        }
+
         private void SetGlobal()
         {
             var name = ReadConstant().AsString;
-            var value = Peek();
+            var value = Peek(0);
             if (_globals.ContainsKey(name.ToString()))
             {
                 _globals[name.ToString()] = value;
@@ -112,7 +132,7 @@ namespace testlang
         private void DefineGlobal()
         {
             var name = ReadConstant().AsString;
-            _globals.Add(name.ToString(), Peek());
+            _globals.Add(name.ToString(), Peek(0));
             Pop();
         }
 
@@ -144,7 +164,7 @@ namespace testlang
 
         private void Print()
         {
-            Console.WriteLine(Pop());
+            Console.WriteLine($"Popped: {Pop()}");
         }
 
         private void Add()
@@ -210,17 +230,17 @@ namespace testlang
 
         private void Push(Value value)
         {
-            _stack.Push(value);
+            _stack[_stackTop++] = value;
         }
 
-        private Value Peek()
+        private Value Peek(int offset)
         {
-            return _stack.Peek();
+            return _stack[_stackTop - 1 - offset];
         }
         
         private Value Pop()
         {
-            return _stack.Pop();
+            return _stack[--_stackTop]; // TODO switch --
         }
     }
 }

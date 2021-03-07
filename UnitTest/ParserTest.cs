@@ -126,5 +126,28 @@ x = 20;";
 
             // TestHelper.AreEqualByJson(expected, actual);
         }
+        
+        [Test]
+        public void Parse_Block_ReturnsAst()
+        {
+            var expected = new List<Statement>
+            {
+                new BlockStatement(
+                    new List<Statement>
+                    {
+                        new VarStatement(
+                            new Variable("x"),
+                            new Expression(new Number(10))
+                        )
+                    })
+            };
+
+            var input = @"{
+var x = 10;
+}";
+            var actual = Parser.Parse(input);
+
+            TestHelper.AreEqualByJson(expected, actual);
+        }
     }
 }

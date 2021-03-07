@@ -15,7 +15,7 @@ namespace testlang
         {
             _tokens = Lexer.Parse(source);
             _tokens.Reverse();
-            
+
             var statements = new List<Statement>();
 
             while (HasNext())
@@ -58,12 +58,29 @@ namespace testlang
                     Next();
                     result = PrintStatement();
                     break;
+                case TokenType.LeftBrace:
+                    Next();
+                    result = BlockStatement();
+                    break;
                 default:
                     result = ExpressionStatement();
                     break;
             }
 
             return result;
+        }
+
+        private static Statement BlockStatement()
+        {
+            var block = new List<Statement>();
+            while (!(PeekType() is TokenType.RightBrace) &&
+                   !(PeekType() is TokenType.EOF))
+            {
+                block.Add(Declaration());
+            }
+
+            Expect(TokenType.RightBrace);
+            return new BlockStatement(block);
         }
 
         private static Statement PrintStatement()
@@ -111,12 +128,12 @@ namespace testlang
                     if (PeekType() is TokenType.Equal)
                     {
                         // Set
-                        
+
                         // Pop '=' operator
                         Next();
 
                         var rhs = ParseExpression(0);
-                        
+
                         var var = new Variable(lhs.Source);
                         expr = new Expression(new VarSetExpression(var, rhs));
                     }
@@ -126,6 +143,7 @@ namespace testlang
                         var var = new VarGetExpression(new Variable(lhs.Source));
                         expr = new Expression(var); // TODO
                     }
+
                     break;
                 default:
                     throw new Exception($"Token not covered: {lhs}");
@@ -157,7 +175,7 @@ namespace testlang
                     TokenType.Slash => BinaryOperator.Slash,
                     TokenType.Star => BinaryOperator.Star,
                 };
-                
+
                 expr = new Expression(new BinaryExpression(expr, rhs, binaryOp));
             }
 
@@ -217,8 +235,9 @@ namespace testlang
                 Next();
                 initializer = ParseExpression(0);
             }
+
             Expect(TokenType.Semicolon);
-            
+
             return new VarStatement(new Variable(ident.Source), initializer);
         }
 

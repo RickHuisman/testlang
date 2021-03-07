@@ -14,7 +14,7 @@ namespace testlang
             var compiler = new Compiler();
             compiler.Compile(source);
             var chunk = compiler._chunk;
-            
+
             Console.WriteLine(chunk);
             
             var vm = new VM(chunk);

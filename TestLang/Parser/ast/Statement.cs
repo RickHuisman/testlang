@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace testlang.ast
 {
     public class Statement
@@ -48,6 +50,16 @@ namespace testlang.ast
         public override string ToString()
         {
             return $"[VarStatement {Expr}]";
+        }
+    }
+
+    public class BlockStatement : Statement
+    {
+        public List<Statement> Statements { get; }
+
+        public BlockStatement(List<Statement> statements)
+        {
+            Statements = statements;
         }
     }
 

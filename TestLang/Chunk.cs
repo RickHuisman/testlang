@@ -1,14 +1,12 @@
-using System;
 using System.Text;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace testlang
 {
     public class Chunk
     {
         private string Name;
-        public List<byte> Code { get; }
+        public List<byte> Code { get; set; }
         private List<int> Lines = new List<int>();
         public List<Value> Constants { get; }
 
@@ -36,48 +34,59 @@ namespace testlang
 
             builder.AppendLine($"== {Name} chunk ==");
 
-            var foobar = new List<byte>(Code);
-            foobar.Reverse();
-            var test = new Stack<byte>(foobar);
-
-            while (test.Count != 0)
+            for (var offset = 0; offset < Code.Count;)
             {
-                var code = (OpCode) test.Pop();
-                switch (code)
-                {
-                    case OpCode.Constant:
-                        builder.AppendLine(code.ToString()); 
-                        var constant = test.Pop(); 
-                        builder.AppendLine($"Constant index at {constant}");
-                        break;
-                    case OpCode.DefineGlobal: 
-                        builder.AppendLine(code.ToString());
-                        var constant2 = test.Pop(); 
-                        builder.AppendLine($"Constant index at {constant2}");
-                        break;
-                    case OpCode.SetGlobal:
-                        builder.AppendLine(code.ToString());
-                        var constant4 = test.Pop(); 
-                        builder.AppendLine($"Constant index at {constant4}");
-                        break;
-                    case OpCode.GetGlobal:
-                        builder.AppendLine(code.ToString());
-                        var constant3 = test.Pop(); 
-                        builder.AppendLine($"Constant index at {constant3}");
-                        break;
-                    default:
-                       builder.AppendLine(code.ToString());
-                       break;
-                }
+                offset = DisassembleInstruction(builder, offset);
             }
 
-            // foreach (var code in Code)
-            // {
-            //     var opcode = (OpCode) code;
-            //     builder.AppendLine(opcode.ToString());
-            // }
-
             return builder.ToString();
+        }
+
+        private int DisassembleInstruction(StringBuilder builder, int offset)
+        {
+            builder.AppendFormat("{0:X4} ", offset);
+
+            var instruction = (OpCode) Code[offset];
+            switch (instruction)
+            {
+                case OpCode.Constant:
+                    return ConstantInstruction(builder, "OP_CONSTANT", offset);
+                case OpCode.DefineGlobal:
+                    return ConstantInstruction(builder, "OP_DEFINE_GLOBAL", offset);
+                case OpCode.GetLocal:
+                    return ByteInstruction(builder, "OP_GET_LOCAL", offset);
+                case OpCode.SetLocal:
+                    return ByteInstruction(builder, "OP_SET_LOCAL", offset);
+                case OpCode.GetGlobal:
+                    return ConstantInstruction(builder, "OP_GET_GLOBAL", offset);
+                case OpCode.Print:
+                    return SimpleInstruction(builder, "OP_PRINT", offset);
+                case OpCode.Pop:
+                    return SimpleInstruction(builder, "OP_POP", offset);
+                default:
+                    builder.AppendLine($"Unknown opcode {instruction}");
+                    return offset + 1;
+            }
+        }
+        
+        private int ConstantInstruction(StringBuilder builder, string name, int offset)
+        {
+            byte constant = Code[offset + 1];
+            builder.AppendFormat($"{name,-16} {constant,4:X} '{Constants[constant]}'\n");
+            return offset + 2;
+        }
+        
+        private int ByteInstruction(StringBuilder builder, string name, int offset)
+        {
+            var slot = Code[offset + 1];
+            builder.AppendLine($"{name,-16} {slot,4:X}");
+            return offset + 2;
+        }
+        
+        private static int SimpleInstruction(StringBuilder builder, string name, int offset)
+        {
+            builder.AppendLine(name);
+            return offset + 1;
         }
     }
 }

@@ -58,9 +58,17 @@ namespace testlang
                     Next();
                     result = PrintStatement();
                     break;
+                case TokenType.If:
+                    Next();
+                    result = IfStatement();
+                    break;
                 case TokenType.LeftBrace:
                     Next();
                     result = BlockStatement();
+                    break;
+                case TokenType.While:
+                    Next();
+                    result = WhileStatement();
                     break;
                 default:
                     result = ExpressionStatement();
@@ -68,6 +76,34 @@ namespace testlang
             }
 
             return result;
+        }
+
+        private static Statement WhileStatement()
+        {
+            Expect(TokenType.LeftParen);
+            var cond = ParseExpression(0);
+            Expect(TokenType.RightParen);
+
+            var stmt = ParseStatement();
+
+            return new WhileStatement(cond, stmt);
+        }
+
+        private static Statement IfStatement()
+        {
+            Expect(TokenType.LeftParen);
+            var cond = ParseExpression(0);
+            Expect(TokenType.RightParen);
+            var thenClause = Declaration();
+
+            if (PeekType() is TokenType.Else)
+            {
+                Next();
+                var elseClause = Declaration();
+                return new IfElseStatement(cond, thenClause, elseClause);
+            }
+
+            return new IfStatement(cond, thenClause);
         }
 
         private static Statement BlockStatement()
@@ -221,6 +257,7 @@ namespace testlang
                 TokenType.Slash => Precedence.PREC_FACTOR,
                 TokenType.Semicolon => Precedence.PREC_NONE,
                 TokenType.Equal => Precedence.PREC_ASSIGNMENT, // TODO correct???
+                TokenType.RightParen => Precedence.PREC_NONE, // TODO correct???
                 _ => throw new Exception($"Bad op: {op}")
             };
         }

@@ -90,12 +90,41 @@ namespace testlang
                     case OpCode.SetLocal:
                         SetLocal();
                         break;
+                    case OpCode.JumpIfFalse:
+                        JumpIfFalse();
+                        break;
+                    case OpCode.Jump:
+                        Jump();
+                        break;
+                    case OpCode.Loop:
+                        Loop();
+                        break;
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
             }
         }
 
+        private void Loop()
+        {
+            var offset = ReadShort();
+            _ip -= offset;
+        }
+
+        private void JumpIfFalse()
+        { 
+            var offset = ReadShort();
+            if (IsFalsey(Peek(0))) {
+                _ip += offset;
+            }
+        }
+
+        private void Jump()
+        {
+            var offset = ReadShort();
+            _ip += offset;
+        }
+        
         private void GetLocal()
         {
             var slot = ReadByte();
@@ -210,10 +239,17 @@ namespace testlang
                 ValueType.Number => a.AsNumber == b.AsNumber,
             };
         }
-
+        
         private Value ReadConstant()
         {
             return _chunk.Constants[ReadByte()];
+        }
+
+        private ushort ReadShort()
+        {
+            _ip += 2;
+            
+            return (ushort)((_chunk.Code[_ip - 2] << 8) | _chunk.Code[_ip - 1]);
         }
 
         private byte ReadByte()

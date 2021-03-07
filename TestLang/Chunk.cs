@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using System.Collections.Generic;
 
@@ -51,6 +52,10 @@ namespace testlang
             {
                 case OpCode.Constant:
                     return ConstantInstruction(builder, "OP_CONSTANT", offset);
+                case OpCode.Equal:
+                    return SimpleInstruction(builder, "OP_EQUALS", offset);
+                case OpCode.Greater:
+                    return SimpleInstruction(builder, "OP_GREATER", offset);
                 case OpCode.DefineGlobal:
                     return ConstantInstruction(builder, "OP_DEFINE_GLOBAL", offset);
                 case OpCode.GetLocal:
@@ -63,6 +68,12 @@ namespace testlang
                     return SimpleInstruction(builder, "OP_PRINT", offset);
                 case OpCode.Pop:
                     return SimpleInstruction(builder, "OP_POP", offset);
+                case OpCode.Jump:
+                    return JumpInstruction(builder, "OP_JUMP", 1, offset);
+                case OpCode.JumpIfFalse:
+                    return JumpInstruction(builder, "OP_JUMP_IF_FALSE", 1, offset);
+                case OpCode.Loop:
+                    return JumpInstruction(builder, "OP_LOOP", -1, offset);
                 default:
                     builder.AppendLine($"Unknown opcode {instruction}");
                     return offset + 1;
@@ -72,7 +83,8 @@ namespace testlang
         private int ConstantInstruction(StringBuilder builder, string name, int offset)
         {
             byte constant = Code[offset + 1];
-            builder.AppendFormat($"{name,-16} {constant,4:X} '{Constants[constant]}'\n");
+            // builder.AppendFormat($"{name,-16} {constant,4:X} '{Constants[constant]}'\n"); TODO
+            builder.AppendFormat($"{name} {constant}'\n");
             return offset + 2;
         }
         
@@ -81,6 +93,13 @@ namespace testlang
             var slot = Code[offset + 1];
             builder.AppendLine($"{name,-16} {slot,4:X}");
             return offset + 2;
+        }
+        
+        private int JumpInstruction(StringBuilder builder, string name, int sign, int offset)
+        {
+            ushort jump = (ushort)((Code[offset + 1] << 8) | Code[offset + 2]);
+            builder.AppendLine($"{name,-16} {offset,4:X} -> {offset+ 3 + sign * jump,4:X}");
+            return offset + 3;
         }
         
         private static int SimpleInstruction(StringBuilder builder, string name, int offset)

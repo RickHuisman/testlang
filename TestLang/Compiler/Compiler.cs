@@ -44,12 +44,84 @@ namespace testlang
                     CompileExpr(expr.Expr);
                     Emit(OpCode.Print);
                     break;
+                case IfStatement ifStmt:
+                    CompileIfStatement(ifStmt.Condition, ifStmt.ThenClause, null);
+                    break;
+                case IfElseStatement ifElseStmt:
+                    CompileIfStatement(ifElseStmt.Condition, ifElseStmt.ThenClause, ifElseStmt.ElseClause);
+                    break;
                 case BlockStatement block:
                     CompileBlock(block);
+                    break;
+                case WhileStatement whileStmt:
+                    CompileWhile(whileStmt);
                     break;
                 default:
                     throw new Exception($"TODO {statement}");
             }
+        }
+
+        private void CompileWhile(WhileStatement whileStmt)
+        {
+            var loopStart = _chunk.Code.Count;
+            CompileExpr(whileStmt.Condition);
+
+            int exitJump = EmitJump(OpCode.JumpIfFalse);
+            Emit(OpCode.Pop);
+            CompileStatement(whileStmt.ThenClause);
+
+            EmitLoop(loopStart);
+            PatchJump(exitJump);
+            Emit(OpCode.Pop);
+        }
+
+        private void EmitLoop(int loopStart)
+        {
+            Emit(OpCode.Loop);
+
+            var offset = _chunk.Code.Count - loopStart + 2;
+
+            EmitByte((byte)((offset >> 8) & 0xff));
+            EmitByte((byte)(offset & 0xff));
+        }
+
+        private void CompileIfStatement(Expression condition, Statement thenClause, Statement elseClause)
+        {
+            CompileExpr(condition);
+
+            // Jump to else clause if false
+            var thenJump = EmitJump(OpCode.JumpIfFalse);
+            Emit(OpCode.Pop);
+            
+            CompileStatement(thenClause);
+            
+            var elseJump = EmitJump(OpCode.Jump);
+            
+            PatchJump(thenJump);
+            Emit(OpCode.Pop);
+
+            if (elseClause != null)
+            {
+                CompileStatement(elseClause);
+            }
+            PatchJump(elseJump);
+        }
+
+        private int EmitJump(OpCode instruction)
+        {
+            Emit(instruction);
+            EmitByte(0xff);
+            EmitByte(0xff);
+            return _chunk.Code.Count - 2;
+        }
+
+        private void PatchJump(int offset)
+        {
+            // -2 to adjust for the bytecode for the jump offset itself.
+            var jump = _chunk.Code.Count - offset - 2;
+            
+            _chunk.Code[offset] = (byte)((jump >> 8) & 0xff);
+            _chunk.Code[offset + 1] = (byte)(jump & 0xff);
         }
 
         private void CompileBlock(BlockStatement block)
@@ -280,6 +352,11 @@ namespace testlang
             var constant = _chunk.AddConstant(val);
             _chunk.WriteChunk((byte) OpCode.Constant);
             _chunk.WriteChunk((byte) constant);
+        }
+        
+        private void EmitByte(byte b)
+        {
+            _chunk.WriteChunk(b);
         }
 
         private void Emit(OpCode opCode)

@@ -19,6 +19,9 @@ namespace testlang
         GetGlobal,
         SetGlobal,
         GetLocal,
-        SetLocal
+        SetLocal,
+        JumpIfFalse,
+        Jump,
+        Loop
     }
 }

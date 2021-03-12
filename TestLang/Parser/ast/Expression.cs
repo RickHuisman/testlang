@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace testlang.ast
 {
     public class Expression
@@ -17,7 +19,7 @@ namespace testlang.ast
 
     public abstract class ExpressionKind
     {
-        
+
     }
 
     public enum BinaryOperator
@@ -30,8 +32,8 @@ namespace testlang.ast
         LessThanEqual,
         Minus,
         Plus,
-        Slash,
-        Star,
+        Divide,
+        Multiply,
     }
 
     public class BinaryExpression : ExpressionKind
@@ -52,13 +54,23 @@ namespace testlang.ast
             return $"Lhs: {Lhs} - Rhs: {Rhs} - Operator: {Operator}";
         }
     }
-    
+
+    public class GroupingExpression : ExpressionKind
+    {
+        public Expression Expr;
+
+        public GroupingExpression(Expression expr)
+        {
+            Expr = expr;
+        }
+    }
+
     public enum UnaryOperator
     {
         Minus,
         Bang
     }
-    
+
     public class UnaryExpression : ExpressionKind
     {
         public UnaryOperator Operator;
@@ -79,46 +91,58 @@ namespace testlang.ast
     public class VarExpression : ExpressionKind
     {
         public Variable Var;
-        
+
         public VarExpression(Variable var)
         {
             Var = var;
         }
     }
-    
+
     public class VarAssignExpression : ExpressionKind
     {
         public Variable Var;
         public Expression Expr;
-        
+
         public VarAssignExpression(Variable var, Expression expr)
         {
             Var = var;
             Expr = expr;
         }
     }
-    
+
     public class VarGetExpression : ExpressionKind
     {
         public Variable Var;
         // public Expression Expr;
-        
+
         public VarGetExpression(Variable var)
         {
             Var = var;
             // Expr = expr;
         }
     }
-    
+
     public class VarSetExpression : ExpressionKind
     {
         public Variable Var;
         public Expression Expr;
-        
+
         public VarSetExpression(Variable var, Expression expr)
         {
             Var = var;
             Expr = expr;
+        }
+    }
+
+    public class CallExpression : ExpressionKind
+    {
+        public Expression Callee;
+        public List<Expression> Arguments;
+
+        public CallExpression(Expression callee, List<Expression> arguments)
+        {
+            Callee = callee;
+            Arguments = arguments;
         }
     }
 }

@@ -1,36 +1,46 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using testlang.ast;
 
 namespace testlang
 {
     public class VM
     {
-        private Chunk _chunk;
-        private int _ip;
-        private Value[] _stack = new Value[byte.MaxValue]; // TODO size
+        // private Chunk _chunk;
+        // private int _ip;
+        private SliceableArray<Value> _stack = new SliceableArray<Value>(byte.MaxValue); // TODO size
         private int _stackTop = 0;
         private Dictionary<string, Value> _globals = new Dictionary<string, Value>();
 
-        public VM(Chunk chunk)
+        private readonly CallFrame[] _frames = new CallFrame[64]; // TODO 64???
+        private CallFrame _frame;
+        private int _frameCount;
+
+        public VM()
         {
-            _chunk = chunk;
-            _ip = 0;
+            // _ip = 0;
         }
 
-        public void Interpret()
+        public void Interpret(string source)
         {
+            var function = new Compiler(FunctionType.Script).Compile(source);
+
+            Push(Value.Obj(function));
+
+            CallValue(Value.Obj(function), 0);
+
             Run();
         }
 
         private void Run()
         {
+            _frame = _frames[_frameCount - 1];
+
             while (!IsAtEnd())
             {
                 var b = ReadByte();
 
-                switch ((OpCode) b)
+                switch ((OpCode)b)
                 {
                     case OpCode.Constant:
                         var value = ReadConstant();
@@ -54,9 +64,20 @@ namespace testlang
                         Push(Value.Number(-negate));
                         break;
                     case OpCode.Return:
-                        var popped = Pop();
-                        Console.WriteLine($"OpCode.Return: {popped}"); // TODO
-                        return;
+                        var result = Pop();
+
+                        _frameCount -= 1;
+                        if (_frameCount == 0) {
+                            Pop();
+                            return;
+                            // return InterpretResult.OK;
+                        }
+
+                        _stackTop = _frame.Slots.Offset;
+                        Push(result);
+
+                        _frame = _frames[_frameCount - 1];
+                        break;
                     case OpCode.Print:
                         Print();
                         break;
@@ -99,42 +120,100 @@ namespace testlang
                     case OpCode.Loop:
                         Loop();
                         break;
+                    case OpCode.Nil:
+                        Push(Value.Nil);
+                        break;
+                    case OpCode.Call:
+                        var argCount = ReadByte();
+                        if (!CallValue(Peek(argCount), argCount))
+                        {
+                            throw new Exception("????"); // TODO
+                        }
+                        _frame = _frames[_frameCount - 1];
+                        break;
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
             }
         }
 
+        private bool CallValue(Value callee, int argCount)
+        {
+            if (callee.IsObj)
+            {
+                switch (callee.ObjType)
+                {
+                    case ObjType.Function:
+                        return Call(callee.AsFunction, argCount);
+                    // case ObjType.Native:
+                    //     {
+                    //         Func<int, Value[], Value> native = callee.AsNative;
+                    //         Value result = native(argCount, stack.Take(argCount));
+                    //         stackTop -= argCount + 1;
+                    //         Push(result);
+                    //         return true;
+                    //     }
+                    default:
+                        break;
+                }
+            }
+
+            throw new Exception("Can only call functions and classes");
+            return false;
+        }
+
+        private bool Call(ObjFunction function, int argCount)
+        {
+            if (argCount != function.Arity)
+            {
+                throw new Exception($"Expected {function.Arity} arguments but got {argCount}");
+                return false;
+            }
+
+            // if (_frameCount == FramesMax) // TODO
+            // {
+            //     throw new Exception($"Stack overflow.");
+            //     return false;
+            // }
+
+            _frames[_frameCount++] = new CallFrame
+            {
+                Function = function,
+                Ip = 0,
+                Slots = _stack.Slice(_stackTop - argCount - 1)
+            };
+
+            return true;
+        }
+
         private void Loop()
         {
             var offset = ReadShort();
-            _ip -= offset;
+            _frame.Ip -= offset;
         }
 
         private void JumpIfFalse()
-        { 
+        {
             var offset = ReadShort();
-            if (IsFalsey(Peek(0))) {
-                _ip += offset;
-            }
+            if (IsFalsey(Peek(0))) _frame.Ip += offset;
         }
 
         private void Jump()
         {
             var offset = ReadShort();
-            _ip += offset;
+            _frame.Ip += offset;
         }
-        
+
         private void GetLocal()
         {
             var slot = ReadByte();
-            Push(_stack.ElementAt(slot));
+            Push(_frame.Slots[slot]);
         }
 
         private void SetLocal()
         {
             var slot = ReadByte();
-            _stack[slot] = Peek(0);
+            _frame.Slots[slot] = Peek(0);
         }
 
         private void SetGlobal()
@@ -169,14 +248,14 @@ namespace testlang
         {
             Push(Value.Bool(IsFalsey(Pop())));
         }
-        
+
         private void Equal()
         {
             var bpopped = Pop();
             var apopped = Pop();
             Push(Value.Bool(ValuesEqual(apopped, bpopped)));
         }
-        
+
         private void Greater()
         {
             var bpopped = Pop().AsNumber;
@@ -193,7 +272,7 @@ namespace testlang
 
         private void Print()
         {
-            Console.WriteLine($"Popped: {Pop()}");
+            Console.WriteLine($"Print: {Pop()}");
         }
 
         private void Add()
@@ -223,11 +302,12 @@ namespace testlang
             var apopped = Pop().AsNumber;
             Push(Value.Number(bpopped / apopped));
         }
-        
-        private bool IsFalsey(Value value) {
+
+        private bool IsFalsey(Value value)
+        {
             return value.IsNil || value.IsBool && !value.AsBool;
         }
-        
+
         private bool ValuesEqual(Value a, Value b)
         {
             if (a.Type != b.Type) return false;
@@ -239,29 +319,35 @@ namespace testlang
                 ValueType.Number => a.AsNumber == b.AsNumber,
             };
         }
-        
+
+        private void ResetStack()
+        {
+            _stackTop = 0;
+            _frameCount = 0;
+        }
+
         private Value ReadConstant()
         {
-            return _chunk.Constants[ReadByte()];
+            return CurrentChunk().Constants[ReadByte()];
         }
 
         private ushort ReadShort()
         {
-            _ip += 2;
-            
-            return (ushort)((_chunk.Code[_ip - 2] << 8) | _chunk.Code[_ip - 1]);
+            _frame.Ip += 2;
+
+            return (ushort)((CurrentChunk().Code[_frame.Ip - 2] << 8) | CurrentChunk().Code[_frame.Ip - 1]);
         }
 
         private byte ReadByte()
         {
-            var b = _chunk.Code[_ip];
-            _ip += 1;
+            var b = CurrentChunk().Code[_frame.Ip];
+            _frame.Ip += 1;
             return b;
         }
 
         private bool IsAtEnd()
         {
-            return _ip >= _chunk.Code.Count;
+            return _frame.Ip >= CurrentChunk().Code.Count;
         }
 
         private void Push(Value value)
@@ -273,10 +359,15 @@ namespace testlang
         {
             return _stack[_stackTop - 1 - offset];
         }
-        
+
         private Value Pop()
         {
             return _stack[--_stackTop]; // TODO switch --
+        }
+
+        private Chunk CurrentChunk()
+        {
+            return _frame.Function.Chunk;
         }
     }
 }

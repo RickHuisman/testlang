@@ -127,4 +127,28 @@ namespace testlang.ast
             Body = body;
         }
     }
+
+    public class FunctionStatement : Statement
+    {
+        public Variable Variable;
+        public FunctionDeclaration Declaration;
+
+        public FunctionStatement(Variable variable, FunctionDeclaration declaration)
+        {
+            Variable = variable;
+            Declaration = declaration;
+        }
+    }
+    
+    public class FunctionDeclaration
+    {
+        public List<Variable> Parameters;
+        public BlockStatement Body;
+
+        public FunctionDeclaration(List<Variable> parameters, BlockStatement body)
+        {
+            Parameters = parameters;
+            Body = body;
+        }
+    }
 }

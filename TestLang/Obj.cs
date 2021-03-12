@@ -39,20 +39,20 @@ namespace testlang
     {
         public ObjFunction() : base(ObjType.Function)
         {
-            arity = 0;
-            name = null;
-            chunk = new Chunk("test"); // TODO
+            Arity = 0;
+            Name = null;
+            Chunk = new Chunk("test"); // TODO
         }
 
-        public int arity;
+        public int Arity;
 
-        public Chunk chunk;
+        public Chunk Chunk;
 
-        public ObjString name;
+        public ObjString Name;
 
         public override string ToString()
         {
-            return $"<fn {(name == null ? "<script>" : name.Chars)}>";
+            return $"<fn {(Name == null ? "<script>" : Name.Chars)}>";
         }
     }
 

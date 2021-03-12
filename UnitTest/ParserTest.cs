@@ -1,153 +1,212 @@
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-using testlang;
-using testlang.ast;
+// using System;
+// using System.Collections.Generic;
+// using NUnit.Framework;
+// using testlang;
+// using testlang.ast;
 
-namespace UnitTest
-{
-    public class ParserTest
-    {
-        [Test]
-        public void Parse_StringExpr_ReturnsAst()
-        {
-            var expected = new List<Statement>
-            {
-                new StatementExpr(
-                    new Expression(
-                        new BinaryExpression(
-                            new Expression(new StringLiteral("test")),
-                            new Expression(new TrueLiteral()),
-                            BinaryOperator.Equal)
-                    )
-                )
-            };
+// namespace UnitTest
+// {
+//     public class ParserTest
+//     {
+//         [Test]
+//         public void Parse_StringExpr_ReturnsAst()
+//         {
+//             var expected = new List<Statement>
+//             {
+//                 new StatementExpr(
+//                     new Expression(
+//                         new BinaryExpression(
+//                             new Expression(new StringLiteral("test")),
+//                             new Expression(new TrueLiteral()),
+//                             BinaryOperator.Equal)
+//                     )
+//                 )
+//             };
 
-            var input = "\"test\" == true;";
-            var actual = Parser.Parse(input);
-            
-            TestHelper.AreEqualByJson(expected, actual);
-        }
+//             var input = "\"test\" == true;";
+//             var actual = Parser.Parse(input);
 
-        [Test]
-        public void Parse_BooleanExpr_ReturnsAst()
-        {
-            var expected = new List<Statement>
-            {
-                new StatementExpr(
-                    new Expression(
-                        new BinaryExpression(
-                            new Expression(new TrueLiteral()),
-                            new Expression(new FalseLiteral()),
-                            BinaryOperator.BangEqual)
-                    )
-                )
-            };
+//             TestHelper.AreEqualByJson(expected, actual);
+//         }
 
-            var input = "true != false;";
-            var actual = Parser.Parse(input);
+//         [Test]
+//         public void Parse_BooleanExpr_ReturnsAst()
+//         {
+//             var expected = new List<Statement>
+//             {
+//                 new StatementExpr(
+//                     new Expression(
+//                         new BinaryExpression(
+//                             new Expression(new TrueLiteral()),
+//                             new Expression(new FalseLiteral()),
+//                             BinaryOperator.BangEqual)
+//                     )
+//                 )
+//             };
 
-            TestHelper.AreEqualByJson(expected, actual);
-        }
+//             var input = "true != false;";
+//             var actual = Parser.Parse(input);
 
-        [Test]
-        public void Parse_NilExpr_ReturnsAst()
-        {
-            var expected = new List<Statement>
-            {
-                new StatementExpr(
-                    new Expression(
-                        new BinaryExpression(
-                            new Expression(new NilLiteral()),
-                            new Expression(new FalseLiteral()),
-                            BinaryOperator.BangEqual)
-                    )
-                )
-            };
+//             TestHelper.AreEqualByJson(expected, actual);
+//         }
 
-            var input = "nil != false;";
-            var actual = Parser.Parse(input);
+//         [Test]
+//         public void Parse_NilExpr_ReturnsAst()
+//         {
+//             var expected = new List<Statement>
+//             {
+//                 new StatementExpr(
+//                     new Expression(
+//                         new BinaryExpression(
+//                             new Expression(new NilLiteral()),
+//                             new Expression(new FalseLiteral()),
+//                             // BinaryOperator.BangEqual)
+//                     )
+//                 )
+//             };
 
-            TestHelper.AreEqualByJson(expected, actual);
-        }
+//             var input = "nil != false;";
+//             var actual = Parser.Parse(input);
 
-        [Test]
-        public void Parse_VarStatement_ReturnsAst()
-        {
-            var expected = new List<Statement>
-            {
-                new VarStatement(
-                    new Variable("test"),
-                    new Expression(new Number(10))
-                )
-            };
+//             TestHelper.AreEqualByJson(expected, actual);
+//         }
 
-            var input = "var test = 10;";
-            var actual = Parser.Parse(input);
+//         [Test]
+//         public void Parse_VarStatement_ReturnsAst()
+//         {
+//             var expected = new List<Statement>
+//             {
+//                 new VarStatement(
+//                     new Variable("test"),
+//                     new Expression(new Number(10))
+//                 )
+//             };
 
-            TestHelper.AreEqualByJson(expected, actual);
-        }
-        
-        [Test]
-        public void Parse_SetVarExpr_ReturnsAst()
-        {
-            var expected = new List<Statement>
-            {
-                new VarStatement(
-                    new Variable("test"),
-                    new Expression(new Number(10))
-                )
-            };
+//             var input = "var test = 10;";
+//             var actual = Parser.Parse(input);
 
-            var input = @"var test = 10;
-x = 20;";
-            var actual = Parser.Parse(input);
-            Console.WriteLine(TestHelper.AsJson(actual));
+//             TestHelper.AreEqualByJson(expected, actual);
+//         }
 
-            // TestHelper.AreEqualByJson(expected, actual);
-        }
-        
-        [Test]
-        public void Parse_GetVarExpr_ReturnsAst()
-        {
-            var expected = new List<Statement>
-            {
-                new VarStatement(
-                    new Variable("test"),
-                    new Expression(new Number(10))
-                )
-            };
+//         [Test]
+//         public void Parse_SetVarExpr_ReturnsAst()
+//         {
+//             var expected = new List<Statement>
+//             {
+//                 new VarStatement(
+//                     new Variable("test"),
+//                     new Expression(new Number(10))
+//                 )
+//             };
 
-            //var input = @"var test = 10;
-//print test;";
-            var input = "print 10;";
-            var actual = Parser.Parse(input);
-            Console.WriteLine(TestHelper.AsJson(actual));
+//             var input = @"var test = 10;
+// x = 20;";
+//             var actual = Parser.Parse(input);
+//             Console.WriteLine(TestHelper.AsJson(actual));
 
-            // TestHelper.AreEqualByJson(expected, actual);
-        }
-        
-        [Test]
-        public void Parse_Block_ReturnsAst()
-        {
-            var expected = new List<Statement>
-            {
-                new BlockStatement(
-                    new List<Statement>
-                    {
-                        new VarStatement(
-                            new Variable("x"),
-                            new Expression(new Number(10))
-                        )
-                    })
-            };
+//             // TestHelper.AreEqualByJson(expected, actual);
+//         }
 
-            var input = @"{
-var x = 10;
-}";
-            var actual = Parser.Parse(input);
+//         [Test]
+//         public void Parse_GetVarExpr_ReturnsAst()
+//         {
+//             var expected = new List<Statement>
+//             {
+//                 new VarStatement(
+//                     new Variable("test"),
+//                     new Expression(new Number(10))
+//                 )
+//             };
 
-            TestHelper.AreEqualByJson(expected, actual);
-        }
-    }
-}
+//             //var input = @"var test = 10;
+//             //print test;";
+//             var input = "print 10;";
+//             var actual = Parser.Parse(input);
+//             Console.WriteLine(TestHelper.AsJson(actual));
+
+//             // TestHelper.AreEqualByJson(expected, actual);
+//         }
+
+//         [Test]
+//         public void Parse_Block_ReturnsAst()
+//         {
+//             var expected = new List<Statement>
+//             {
+//                 new BlockStatement(
+//                     new List<Statement>
+//                     {
+//                         new VarStatement(
+//                             new Variable("x"),
+//                             new Expression(new Number(10))
+//                         )
+//                     })
+//             };
+
+//             var input = @"{
+// var x = 10;
+// }";
+//             var actual = Parser.Parse(input);
+
+//             TestHelper.AreEqualByJson(expected, actual);
+//         }
+
+//         [Test]
+//         public void Parse_Fun_ReturnsAst()
+//         {
+//             var expected = new List<Statement>
+//             {
+//                 new FunctionStatement(
+//                     new Variable("test"),
+//                     new FunctionDeclaration(
+//                         new List<Variable>(),
+//                         new BlockStatement(
+//                             new List<Statement>
+//                             {
+//                                 new Print(
+//                                     new Expression(new Number(10)))
+//                             })
+//                     )
+//                 )
+//             };
+
+//             var input = @"
+// fun test() {
+//     print 10;
+// }";
+
+//             var actual = Parser.Parse(input);
+
+//             TestHelper.AreEqualByJson(expected, actual);
+//         }
+
+//         [Test]
+//         public void Parse_FunCall_ReturnsAst()
+//         {
+//             var expected = new List<Statement>
+//             {
+//                 new FunctionStatement(
+//                     new Variable("test"),
+//                     new FunctionDeclaration(
+//                         new List<Variable>(),
+//                         new BlockStatement(
+//                             new List<Statement>
+//                             {
+//                                 new Print(
+//                                     new Expression(new Number(10)))
+//                             })
+//                     )
+//                 )
+//             };
+
+//             var input = @"
+// fun test() {
+//     print 10;
+// }
+// test()";
+
+//             // var actual = Parser.Parse(input);
+
+//             TestHelper.AreEqualByJson(expected, actual);
+//         }
+//     }
+// }

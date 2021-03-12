@@ -8,6 +8,7 @@ namespace testlang
         Multiply,
         Divide,
         Negate,
+        Nil,
         Return,
         Print,
         Equal,
@@ -22,6 +23,7 @@ namespace testlang
         SetLocal,
         JumpIfFalse,
         Jump,
-        Loop
+        Loop,
+        Call
     }
 }

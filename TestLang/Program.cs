@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using Newtonsoft.Json;
 using testlang.ast;
 
 namespace testlang
@@ -9,16 +10,25 @@ namespace testlang
     {
         private static void RunFile(string path)
         {
-            string source = File.ReadAllText(path, Encoding.UTF8);
+            var input = @"
+for (var i = 0; i < 10; i = i + 1) {
+    print i;
+}";
+            var test = JsonConvert.SerializeObject(Parser2.Parse(input));
 
-            var compiler = new Compiler();
-            compiler.Compile(source);
-            var chunk = compiler._chunk;
+            Console.WriteLine(test);
+            // string source = File.ReadAllText(path, Encoding.UTF8);
 
-            Console.WriteLine(chunk);
-            
-            var vm = new VM(chunk);
-            vm.Interpret();
+            var compiler = new Compiler(FunctionType.Script);
+            var fun = compiler.Compile(input);
+            Console.WriteLine(fun.Chunk.ToString());
+            // var function = compiler.Compile(source);
+            // var chunk = compiler._chunk;
+
+            // Console.WriteLine(chunk);
+
+            // var vm = new VM();
+            // vm.Interpret(input);
             // InterpretResult result = vm.Interpret(source);
         }
 
@@ -26,7 +36,7 @@ namespace testlang
         {
             RunFile("/Users/rickhuisman/Documents/C#/testlang/TestLang/test.txt");
             //var source = "var test = 10;";
-            
+
             // var compiler = new Compiler();
             // compiler.Compile(source);
             // var chunk = compiler._chunk;

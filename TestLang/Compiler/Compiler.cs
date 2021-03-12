@@ -6,27 +6,66 @@ namespace testlang
     // TODO Make singleton
     public class Compiler
     {
-        public Chunk _chunk; // TODO Make private
-        private Local[] _locals;
-        private int _localCount;
-        private int _scopeDepth;
-        
-        public Compiler()
+        private Instance current;
+
+        class Instance
         {
-            _chunk = new Chunk("test"); // TODO
-            _locals = new Local[byte.MaxValue];
-            _localCount = 0;
-            _scopeDepth = 0;
+            internal Instance()
+            {
+                locals = new Local[byte.MaxValue];
+                localCount = 0;
+                scopeDepth = 0;
+                function = new ObjFunction();
+
+                // locals[localCount++] = new Local {
+                //     depth = 0,
+                //     name = new Token {
+                //         Lexeme = "",
+                //     }
+                // };
+            }
+
+            internal ObjFunction function;
+            internal FunctionType type;
+
+            internal readonly Local[] locals;
+            internal int localCount;
+            internal int scopeDepth;
+
+            internal Instance enclosing;
         }
 
-        public void Compile(string source)
+        // private ObjFunction _function;
+        // private FunctionType _type;
+        // // public Chunk _chunk; // TODO Make private
+        // private Local[] _locals;
+        // private int _localCount;
+        // private int _scopeDepth;
+
+        public Compiler(FunctionType type)
         {
-            var statements = Parser.Parse(source);
+            current = new Instance
+            {
+                type = type,
+                enclosing = null
+            };
+        }
+
+        private Chunk CurrentChunk()
+        {
+            return current.function.Chunk;
+        }
+
+        public ObjFunction Compile(string source)
+        {
+            var statements = Parser2.Parse(source);
 
             foreach (var statement in statements)
             {
                 CompileStatement(statement);
             }
+
+            return EndCompiler();
         }
 
         private void CompileStatement(Statement statement)
@@ -59,9 +98,44 @@ namespace testlang
                 case ForStatement forStmt:
                     CompileFor(forStmt);
                     break;
+                case FunctionStatement funStmt:
+                    CompileFun(funStmt);
+                    DefineVar(funStmt.Variable);
+                    break;
                 default:
                     throw new Exception($"TODO {statement}");
             }
+        }
+
+        private void CompileFun(FunctionStatement fun)
+        {
+            current = new Instance
+            {
+                type = FunctionType.Function, // TODO
+                enclosing = current,
+                function = { Name = ObjString.CopyString(fun.Variable.Name) },
+            };
+
+            BeginScope();
+
+            // TODO Parameters
+            foreach (var p in fun.Declaration.Parameters)
+            {
+                // TODO
+                // DefineVar(p);
+                // AddLocal(p.Name);
+                // ResolveLocal(p.Name);
+            }
+
+            // The body.
+            CompileBlock(fun.Declaration.Body);
+
+            // Create the function object.
+            var test = EndCompiler();
+
+            CurrentChunk().WriteChunk((byte)OpCode.Constant);
+            var constant = CurrentChunk().AddConstant(Value.Obj(test));
+            EmitByte((byte)constant);
         }
 
         private void CompileFor(ForStatement forStmt)
@@ -80,14 +154,14 @@ namespace testlang
                     CompileStatement(forStmt.VarDeclaration);
                 }
             }
-            
-            var loopStart = _chunk.Code.Count;
+
+            var loopStart = CurrentChunk().Code.Count;
 
             var exitJump = -1;
             if (forStmt.Condition != null)
             {
                 CompileExpr(forStmt.Condition);
-                
+
                 // Jump out of loop if condition is false
                 exitJump = EmitJump(OpCode.JumpIfFalse);
                 Emit(OpCode.Pop);
@@ -96,21 +170,22 @@ namespace testlang
             if (forStmt.Increment != null)
             {
                 var bodyJump = EmitJump(OpCode.Jump);
-                
-                var incrementStart = _chunk.Code.Count;
+
+                var incrementStart = CurrentChunk().Code.Count;
                 CompileExpr(forStmt.Increment);
                 Emit(OpCode.Pop);
-                
+
                 EmitLoop(loopStart);
                 loopStart = incrementStart;
                 PatchJump(bodyJump);
             }
-            
+
             CompileStatement(forStmt.Body);
-            
+
             EmitLoop(loopStart);
-            
-            if (exitJump != -1) {
+
+            if (exitJump != -1)
+            {
                 PatchJump(exitJump);
                 Emit(OpCode.Pop);
             }
@@ -120,10 +195,10 @@ namespace testlang
 
         private void CompileWhile(WhileStatement whileStmt)
         {
-            var loopStart = _chunk.Code.Count;
+            var loopStart = CurrentChunk().Code.Count;
             CompileExpr(whileStmt.Condition);
 
-            int exitJump = EmitJump(OpCode.JumpIfFalse);
+            var exitJump = EmitJump(OpCode.JumpIfFalse);
             Emit(OpCode.Pop);
             CompileStatement(whileStmt.ThenClause);
 
@@ -136,7 +211,7 @@ namespace testlang
         {
             Emit(OpCode.Loop);
 
-            var offset = _chunk.Code.Count - loopStart + 2;
+            var offset = CurrentChunk().Code.Count - loopStart + 2;
 
             EmitByte((byte)((offset >> 8) & 0xff));
             EmitByte((byte)(offset & 0xff));
@@ -149,11 +224,11 @@ namespace testlang
             // Jump to else clause if false
             var thenJump = EmitJump(OpCode.JumpIfFalse);
             Emit(OpCode.Pop);
-            
+
             CompileStatement(thenClause);
-            
+
             var elseJump = EmitJump(OpCode.Jump);
-            
+
             PatchJump(thenJump);
             Emit(OpCode.Pop);
 
@@ -161,6 +236,7 @@ namespace testlang
             {
                 CompileStatement(elseClause);
             }
+
             PatchJump(elseJump);
         }
 
@@ -169,16 +245,16 @@ namespace testlang
             Emit(instruction);
             EmitByte(0xff);
             EmitByte(0xff);
-            return _chunk.Code.Count - 2;
+            return CurrentChunk().Code.Count - 2;
         }
 
         private void PatchJump(int offset)
         {
             // -2 to adjust for the bytecode for the jump offset itself.
-            var jump = _chunk.Code.Count - offset - 2;
-            
-            _chunk.Code[offset] = (byte)((jump >> 8) & 0xff);
-            _chunk.Code[offset + 1] = (byte)(jump & 0xff);
+            var jump = CurrentChunk().Code.Count - offset - 2;
+
+            CurrentChunk().Code[offset] = (byte)((jump >> 8) & 0xff);
+            CurrentChunk().Code[offset + 1] = (byte)(jump & 0xff);
         }
 
         private void CompileBlock(BlockStatement block)
@@ -188,6 +264,7 @@ namespace testlang
             {
                 CompileStatement(stmt);
             }
+
             EndScope();
         }
 
@@ -196,7 +273,7 @@ namespace testlang
             // TODO Check if initialized -> if not init with nil
             CompileExpr(var.Expr);
 
-            if (_scopeDepth > 0)
+            if (current.scopeDepth > 0)
             {
                 // Local
                 DeclareVar(var.Variable);
@@ -210,23 +287,25 @@ namespace testlang
 
         private void DefineVar(Variable variable)
         {
-            if (_scopeDepth > 0) return;
-            
+            if (current.scopeDepth > 0) return;
+
             // TODO only global
             Emit(OpCode.DefineGlobal);
-            
+
             var strVal = Value.Obj(ObjString.CopyString(variable.Name));
-            var constant = _chunk.AddConstant(strVal);
-            _chunk.WriteChunk((byte) constant);
+            var constant = CurrentChunk().AddConstant(strVal);
+            CurrentChunk().WriteChunk((byte)constant);
         }
 
         private void DeclareVar(Variable variable)
         {
-            if (_scopeDepth == 0) return;
+            if (current.scopeDepth == 0) return;
 
-            for (var i = _localCount - 1; i >= 0; i -= 1) {
-                var local = _locals[i];
-                if (local.Depth != -1 && local.Depth < _scopeDepth) {
+            for (var i = current.localCount - 1; i >= 0; i -= 1)
+            {
+                var local = current.locals[i];
+                if (local.Depth != -1 && local.Depth < current.scopeDepth)
+                {
                     break;
                 }
 
@@ -235,14 +314,14 @@ namespace testlang
                     throw new Exception($"Already a variable called {variable.Name} in this scope.");
                 }
             }
-            
+
             AddLocal(variable.Name);
             MarkInitialized();
         }
 
         private void AddLocal(string name)
         {
-            _locals[_localCount++] = new Local(name, -1);
+            current.locals[current.localCount++] = new Local(name, -1);
         }
 
         private void CompileExpr(Expression expr)
@@ -263,17 +342,17 @@ namespace testlang
                     {
                         // Local
                         Emit(OpCode.SetLocal);
-                        _chunk.WriteChunk((byte) arg);
+                        CurrentChunk().WriteChunk((byte)arg);
                     }
                     else
                     {
                         // Global
                         Emit(OpCode.SetGlobal);
                         var strVal2 = Value.Obj(ObjString.CopyString(set.Var.Name));
-                        var constant2 = _chunk.AddConstant(strVal2);
-                        _chunk.WriteChunk((byte) constant2);
+                        var constant2 = CurrentChunk().AddConstant(strVal2);
+                        CurrentChunk().WriteChunk((byte)constant2);
                     }
-                    
+
                     break;
                 case VarGetExpression get:
                     var arg2 = ResolveLocal(get.Var.Name);
@@ -281,16 +360,33 @@ namespace testlang
                     {
                         // Local
                         Emit(OpCode.GetLocal);
-                        _chunk.WriteChunk((byte) arg2); // TODO
+                        CurrentChunk().WriteChunk((byte)arg2); // TODO
                     }
                     else
                     {
                         // Global
                         Emit(OpCode.GetGlobal);
                         var strVal = Value.Obj(ObjString.CopyString(get.Var.Name));
-                        var constant = _chunk.AddConstant(strVal);
-                        _chunk.WriteChunk((byte) constant);
+                        var constant = CurrentChunk().AddConstant(strVal);
+                        CurrentChunk().WriteChunk((byte)constant);
                     }
+                    break;
+                case CallExpression call:
+                    var arity = call.Arguments.Count;
+                    if (arity > 8)
+                    {
+                        throw new Exception("Too many arguments"); // TODO
+                    }
+
+                    CompileExpr(call.Callee);
+
+                    foreach (var varArg in call.Arguments)
+                    {
+                        CompileExpr(varArg);
+                    }
+
+                    Emit(OpCode.Call);
+                    EmitByte((byte)arity);
 
                     break;
                 default:
@@ -332,53 +428,60 @@ namespace testlang
                 case BinaryOperator.Plus:
                     Emit(OpCode.Add);
                     break;
-                case BinaryOperator.Slash:
-                    Emit(OpCode.Divide);
-                    break;
-                case BinaryOperator.Star:
+                case BinaryOperator.Multiply:
                     Emit(OpCode.Multiply);
+                    break;
+                case BinaryOperator.Divide:
+                    Emit(OpCode.Divide);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
         }
 
-        private int ResolveLocal(string name) {
-            for (var i = _localCount - 1; i >= 0; i -= 1) {
-                var local = _locals[i];
-                if (name == local.Name) {
-                    if (local.Depth == -1) {
+        private int ResolveLocal(string name)
+        {
+            for (var i = current.localCount - 1; i >= 0; i -= 1)
+            {
+                var local = current.locals[i];
+                if (name == local.Name)
+                {
+                    if (local.Depth == -1)
+                    {
                         throw new Exception($"Can't read local variable {name} in it's own initializer.");
                     }
+
                     return i;
                 }
             }
 
             return -1;
         }
-        
+
         private void MarkInitialized()
         {
-            if (_scopeDepth == 0) {
+            if (current.scopeDepth == 0)
+            {
                 return;
             }
-            _locals[_localCount - 1].Depth = _scopeDepth;
+
+            current.locals[current.localCount - 1].Depth = current.scopeDepth;
         }
 
         private void BeginScope()
         {
-            _scopeDepth += 1;
+            current.scopeDepth += 1;
         }
-        
+
         private void EndScope()
         {
-            _scopeDepth -= 1;
+            current.scopeDepth -= 1;
 
-            while (_localCount > 0 &&
-                   _locals[_localCount - 1].Depth > _scopeDepth)
+            while (current.localCount > 0 &&
+                   current.locals[current.localCount - 1].Depth > current.scopeDepth)
             {
                 Emit(OpCode.Pop);
-                _localCount -= 1;
+                current.localCount -= 1;
             }
         }
 
@@ -406,19 +509,29 @@ namespace testlang
 
         private void EmitConstant(Value val)
         {
-            var constant = _chunk.AddConstant(val);
-            _chunk.WriteChunk((byte) OpCode.Constant);
-            _chunk.WriteChunk((byte) constant);
+            var constant = CurrentChunk().AddConstant(val);
+            CurrentChunk().WriteChunk((byte)OpCode.Constant);
+            CurrentChunk().WriteChunk((byte)constant);
         }
-        
+
         private void EmitByte(byte b)
         {
-            _chunk.WriteChunk(b);
+            CurrentChunk().WriteChunk(b);
         }
 
         private void Emit(OpCode opCode)
         {
-            _chunk.WriteChunk((byte) opCode);
+            CurrentChunk().WriteChunk((byte)opCode);
+        }
+
+        private ObjFunction EndCompiler()
+        {
+            Emit(OpCode.Nil);
+            Emit(OpCode.Return);
+            var fun = current.function;
+
+            current = current.enclosing;
+            return fun;
         }
     }
 }

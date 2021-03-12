@@ -52,6 +52,10 @@ namespace testlang
             {
                 case OpCode.Constant:
                     return ConstantInstruction(builder, "OP_CONSTANT", offset);
+                case OpCode.Less:
+                    return SimpleInstruction(builder, "OP_LESS", offset);
+                case OpCode.Add:
+                    return SimpleInstruction(builder, "OP_ADD", offset);
                 case OpCode.Equal:
                     return SimpleInstruction(builder, "OP_EQUALS", offset);
                 case OpCode.Greater:
@@ -74,6 +78,12 @@ namespace testlang
                     return JumpInstruction(builder, "OP_JUMP_IF_FALSE", 1, offset);
                 case OpCode.Loop:
                     return JumpInstruction(builder, "OP_LOOP", -1, offset);
+                case OpCode.Call:
+                    return ByteInstruction(builder, "OP_CALL", offset);
+                case OpCode.Nil:
+                    return SimpleInstruction(builder, "OP_NIL", offset);
+                case OpCode.Return:
+                    return SimpleInstruction(builder, "OP_RETURN", offset);
                 default:
                     builder.AppendLine($"Unknown opcode {instruction}");
                     return offset + 1;
@@ -83,8 +93,7 @@ namespace testlang
         private int ConstantInstruction(StringBuilder builder, string name, int offset)
         {
             byte constant = Code[offset + 1];
-            // builder.AppendFormat($"{name,-16} {constant,4:X} '{Constants[constant]}'\n"); TODO
-            builder.AppendFormat($"{name} {constant}'\n");
+            builder.AppendFormat($"{name,-16} {constant,4:X} '{Constants[constant]}'\n");
             return offset + 2;
         }
         

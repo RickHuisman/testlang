@@ -17,12 +17,7 @@ namespace testlang
                 scopeDepth = 0;
                 function = new ObjFunction();
 
-                // locals[localCount++] = new Local {
-                //     depth = 0,
-                //     name = new Token {
-                //         Lexeme = "",
-                //     }
-                // };
+                locals[localCount++] = new Local("", 0);
             }
 
             internal ObjFunction function;
@@ -34,13 +29,6 @@ namespace testlang
 
             internal Instance enclosing;
         }
-
-        // private ObjFunction _function;
-        // private FunctionType _type;
-        // // public Chunk _chunk; // TODO Make private
-        // private Local[] _locals;
-        // private int _localCount;
-        // private int _scopeDepth;
 
         public Compiler(FunctionType type)
         {
@@ -58,7 +46,7 @@ namespace testlang
 
         public ObjFunction Compile(string source)
         {
-            var statements = Parser2.Parse(source);
+            var statements = Parser.Parse(source);
 
             foreach (var statement in statements)
             {
@@ -102,8 +90,29 @@ namespace testlang
                     CompileFun(funStmt);
                     DefineVar(funStmt.Variable);
                     break;
+                case ReturnStatement returnStmt:
+                    CompileReturn(returnStmt);
+                    break;
                 default:
                     throw new Exception($"TODO {statement}");
+            }
+        }
+
+        private void CompileReturn(ReturnStatement stmt)
+        {
+            if (current.type == FunctionType.Script) {
+                throw new Exception("Can't return from top level code."); // TODO
+            }
+
+            if (stmt.Expr != null)
+            {
+                CompileExpr(stmt.Expr);
+                Emit(OpCode.Return);
+            }
+            else
+            {
+                Emit(OpCode.Nil);
+                Emit(OpCode.Return);
             }
         }
 
@@ -121,10 +130,8 @@ namespace testlang
             // TODO Parameters
             foreach (var p in fun.Declaration.Parameters)
             {
-                // TODO
-                // DefineVar(p);
-                // AddLocal(p.Name);
-                // ResolveLocal(p.Name);
+                current.function.Arity += 1;
+                DeclareVar(p);
             }
 
             // The body.
@@ -287,9 +294,11 @@ namespace testlang
 
         private void DefineVar(Variable variable)
         {
-            if (current.scopeDepth > 0) return;
+            if (current.scopeDepth > 0) {
+                MarkInitialized();
+                return;
+            }
 
-            // TODO only global
             Emit(OpCode.DefineGlobal);
 
             var strVal = Value.Obj(ObjString.CopyString(variable.Name));
@@ -529,6 +538,8 @@ namespace testlang
             Emit(OpCode.Nil);
             Emit(OpCode.Return);
             var fun = current.function;
+            
+            Console.WriteLine(CurrentChunk());
 
             current = current.enclosing;
             return fun;

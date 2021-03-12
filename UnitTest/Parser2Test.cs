@@ -24,7 +24,7 @@ namespace UnitTest
             };
 
             var input = "print 5 + 10;";
-            var actual = Parser2.Parse(input);
+            var actual = Parser.Parse(input);
 
             TestHelper.AreEqualByJson(expected, actual);
         }
@@ -41,7 +41,7 @@ namespace UnitTest
             };
 
             var input = "var x = 10;";
-            var actual = Parser2.Parse(input);
+            var actual = Parser.Parse(input);
 
             TestHelper.AreEqualByJson(expected, actual);
         }
@@ -62,7 +62,7 @@ namespace UnitTest
             //             var input = @"
             // var x = 10;
             // print x;";
-            var actual = Parser2.Parse(input);
+            var actual = Parser.Parse(input);
             Console.WriteLine(TestHelper.AsJson(actual));
 
             TestHelper.AreEqualByJson(expected, actual);
@@ -101,7 +101,7 @@ fun test() {
 }
 test();";
 
-            var actual = Parser2.Parse(input);
+            var actual = Parser.Parse(input);
 
             TestHelper.AreEqualByJson(expected, actual);
         }

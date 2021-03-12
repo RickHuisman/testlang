@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Newtonsoft.Json;
 using testlang.ast;
@@ -11,25 +12,21 @@ namespace testlang
         private static void RunFile(string path)
         {
             var input = @"
-for (var i = 0; i < 10; i = i + 1) {
-    print i;
-}";
-            var test = JsonConvert.SerializeObject(Parser2.Parse(input));
+fun fib(n) {
+    if (n < 2) return n;
+    return fib(n - 2) + fib(n - 1);
+}
 
+print fib(35);";
+            var test = JsonConvert.SerializeObject(Parser.Parse(input));
             Console.WriteLine(test);
-            // string source = File.ReadAllText(path, Encoding.UTF8);
 
             var compiler = new Compiler(FunctionType.Script);
             var fun = compiler.Compile(input);
-            Console.WriteLine(fun.Chunk.ToString());
-            // var function = compiler.Compile(source);
-            // var chunk = compiler._chunk;
+            // string source = File.ReadAllText(path, Encoding.UTF8);
 
-            // Console.WriteLine(chunk);
-
-            // var vm = new VM();
-            // vm.Interpret(input);
-            // InterpretResult result = vm.Interpret(source);
+            var vm = new VM();
+            vm.Interpret(input);
         }
 
         static void Main(string[] args)

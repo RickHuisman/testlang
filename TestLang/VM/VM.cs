@@ -16,11 +16,6 @@ namespace testlang
         private CallFrame _frame;
         private int _frameCount;
 
-        public VM()
-        {
-            // _ip = 0;
-        }
-
         public void Interpret(string source)
         {
             var function = new Compiler(FunctionType.Script).Compile(source);

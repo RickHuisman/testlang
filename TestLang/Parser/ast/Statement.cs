@@ -151,4 +151,14 @@ namespace testlang.ast
             Body = body;
         }
     }
+
+    public class ReturnStatement : Statement
+    {
+        public Expression Expr;
+        
+        public ReturnStatement(Expression expr)
+        {
+            Expr = expr;
+        }
+    }
 }

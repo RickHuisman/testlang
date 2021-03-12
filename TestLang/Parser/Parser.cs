@@ -2,12 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using testlang.ast;
-using BinaryExpression = testlang.ast.BinaryExpression;
-using Expression = testlang.ast.Expression;
 
 namespace testlang
 {
-    public class Parser
+    public static class Parser
     {
         private static List<Token> _tokens;
 
@@ -17,164 +15,69 @@ namespace testlang
             _tokens.Reverse();
 
             var statements = new List<Statement>();
-
             while (HasNext())
             {
-                var statement = ParseStatement();
+                var statement = Declaration();
                 statements.Add(statement);
             }
 
             return statements;
         }
 
-        private static Statement ParseStatement()
-        {
-            return Declaration();
-        }
-
         private static Statement Declaration()
         {
-            Statement statement;
             switch (PeekType())
             {
                 case TokenType.Fun:
                     Next();
-                    statement = DeclareFun();
-                    break;
+                    return DeclareFun();
                 case TokenType.Var:
                     Next();
-                    statement = DeclareVar();
-                    break;
+                    return DeclareVar();
                 default:
-                    statement = Statement();
-                    break;
+                    return Statement();
             }
-
-            return statement;
-        }
-
-        private static Statement DeclareFun()
-        {
-            var identifier = Expect(TokenType.Identifier);
-
-            Expect(TokenType.LeftParen);
-
-            var parameters = new List<Variable>();
-
-            while (!Check(TokenType.RightParen) && !Check(TokenType.EOF))
-            {
-                var param = Expect(TokenType.Identifier);
-                parameters.Add(new Variable(param.Source));
-
-                if (Check(TokenType.Comma))
-                {
-                    Next();
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            Expect(TokenType.RightParen);
-            Expect(TokenType.LeftBrace);
-
-            var body = BlockStatement();
-
-            var funDecl = new FunctionDeclaration(parameters, body);
-
-            return new FunctionStatement(new Variable(identifier.Source), funDecl);
         }
 
         private static Statement Statement()
         {
-            Statement result;
             switch (PeekType())
             {
                 case TokenType.Print:
                     Next();
-                    result = PrintStatement();
-                    break;
+                    return PrintStatement();
                 case TokenType.If:
                     Next();
-                    result = IfStatement();
-                    break;
+                    return IfStatement();
                 case TokenType.LeftBrace:
                     Next();
-                    result = BlockStatement();
-                    break;
+                    return BlockStatement();
                 case TokenType.While:
                     Next();
-                    result = WhileStatement();
-                    break;
+                    return WhileStatement();
                 case TokenType.For:
                     Next();
-                    result = ForStatement();
-                    break;
+                    return ForStatement();
+                case TokenType.Return:
+                    Next();
+                    return ReturnStatement();
                 default:
-                    result = ExpressionStatement();
-                    break;
+                    return ExpressionStatement();
             }
-
-            return result;
         }
 
-        private static Statement ForStatement()
+        private static Print PrintStatement()
         {
-            Expect(TokenType.LeftParen);
-
-            // Initializer
-            Statement initializer = null;
-            if (Match(TokenType.Semicolon))
-            {
-                // No initializer.
-            }
-            else if (Match(TokenType.Var))
-            {
-                initializer = DeclareVar();
-            }
-            else
-            {
-                initializer = ExpressionStatement();
-            }
-
-            // Condition
-            Expression condition = null;
-            if (!Match(TokenType.Semicolon))
-            {
-                condition = ParseExpression(0);
-                Expect(TokenType.Semicolon);
-            }
-
-            // Increment
-            Expression increment = null;
-            if (!Match(TokenType.RightParen))
-            {
-                increment = ParseExpression(0);
-                Expect(TokenType.RightParen);
-            }
-
-            var body = ParseStatement();
-
-            return new ForStatement(initializer, condition, increment, body);
-        }
-
-        private static Statement WhileStatement()
-        {
-            Expect(TokenType.LeftParen);
-            var cond = ParseExpression(0);
-            Expect(TokenType.RightParen);
-
-            var stmt = ParseStatement();
-
-            return new WhileStatement(cond, stmt);
+            var statement = new Print(Expression());
+            Consume(TokenType.Semicolon, "Expect ';' after expression.");
+            return statement;
         }
 
         private static Statement IfStatement()
         {
-            Expect(TokenType.LeftParen);
-            var cond = ParseExpression(0);
-            Expect(TokenType.RightParen);
+            Consume(TokenType.LeftParen, "Expect '(' after 'if'.");
+            var cond = Expression();
+            Consume(TokenType.RightParen, "Expect ')' after condition.");
             var thenClause = Declaration();
 
             if (PeekType() is TokenType.Else)
@@ -196,95 +99,76 @@ namespace testlang
                 block.Add(Declaration());
             }
 
-            Expect(TokenType.RightBrace);
+            Consume(TokenType.RightBrace, "Expect '}' after block.");
+
             return new BlockStatement(block);
         }
 
-        private static Statement PrintStatement()
+        private static Statement WhileStatement()
         {
-            var val = ParseExpression(0);
-            Expect(TokenType.Semicolon); // TODO
-            return new Print(val);
+            Consume(TokenType.LeftParen, "Expect '(' after 'while'.");
+            var cond = Expression();
+            Consume(TokenType.RightParen, "Expect ')' after condition.");
+
+            var statement = Statement();
+
+            return new WhileStatement(cond, statement);
         }
 
-        private static Statement ExpressionStatement()
+        private static Statement ForStatement()
         {
-            var expr = ParseExpression(0); // TODO pass precedence
-            Expect(TokenType.Semicolon); // TODO
-            return new StatementExpr(expr);
-        }
+            Consume(TokenType.LeftParen, "Expect '(' after 'for'.");
 
-        private static Expression ParseExpression(int minBp)
-        {
-            var lhs = Next();
-
-            Expression expr;
-
-            // Prefix
-            switch (lhs.Type)
+            // Initializer
+            Statement initializer = null;
+            switch (Next().Type)
             {
-                case TokenType.Number:
-                    var number = Convert.ToDouble(lhs.Source);
-                    expr = new Expression(new Number(number));
+                case TokenType.Semicolon:
+                    // No initializer.
                     break;
-                case TokenType.True:
-                    expr = new Expression(new TrueLiteral());
-                    break;
-                case TokenType.False:
-                    expr = new Expression(new FalseLiteral());
-                    break;
-                case TokenType.Nil:
-                    expr = new Expression(new NilLiteral());
-                    break;
-                case TokenType.String:
-                    expr = new Expression(new StringLiteral(lhs.Source));
-                    break;
-                case TokenType.Minus:
-                case TokenType.Bang:
-                    expr = ParseUnaryExpression(lhs.Type);
-                    break;
-                case TokenType.Identifier:
-                    expr = ParseVariable(lhs);
+                case TokenType.Var:
+                    initializer = DeclareVar();
                     break;
                 default:
-                    throw new Exception($"Token not covered: {lhs}");
+                    initializer = ExpressionStatement();
+                    break;
             }
 
-            for (; ; )
+            // Condition
+            Expression condition = null;
+            if (!Match(TokenType.Semicolon))
             {
-                var op = PeekType();
-                if (op is TokenType.EOF) break;
-
-                // Infix
-                var (leftBp, rightBp) = InfixBindingPower(op);
-                if (leftBp < minBp) break;
-
-                // Skip op
-                Next();
-
-                var rhs = ParseExpression(rightBp);
-
-                // var binaryOp = op switch
-                // {
-                //     TokenType.EqualEqual => BinaryOperator.Equal,
-                //     TokenType.BangEqual => BinaryOperator.BangEqual,
-                //     TokenType.GreaterThan => BinaryOperator.GreaterThan,
-                //     TokenType.GreaterThanEqual => BinaryOperator.GreaterThanEqual,
-                //     TokenType.LessThan => BinaryOperator.LessThan,
-                //     TokenType.LessThanEqual => BinaryOperator.LessThanEqual,
-                //     TokenType.Minus => BinaryOperator.Minus,
-                //     TokenType.Plus => BinaryOperator.Plus,
-                //     TokenType.Slash => BinaryOperator.Slash,
-                //     TokenType.Star => BinaryOperator.Star,
-                // };
-
-                // expr = new Expression(new BinaryExpression(expr, rhs, null));
+                condition = Expression();
+                Consume(TokenType.Semicolon, "Expect ';' after loop condition.");
             }
 
-            return expr;
+            // Increment
+            Expression increment = null;
+            if (!Match(TokenType.RightParen))
+            {
+                increment = Expression();
+                Consume(TokenType.RightParen, "Expect ')' after for clauses.");
+            }
+
+            var body = Statement();
+
+            return new ForStatement(initializer, condition, increment, body);
         }
 
-        private static Expression ParseVariable(Token lhs)
+        public static ReturnStatement ReturnStatement()
+        {
+            if (PeekType() is TokenType.Semicolon)
+            {
+                Next();
+                return new ReturnStatement(null);
+            }
+
+            var expr = Expression();
+            Consume(TokenType.Semicolon, ""); // TODO
+            return new ReturnStatement(expr);
+        }
+
+        public static ExpressionKind ParseVariable(Token lhs)
         {
             var next = PeekType();
             switch (next)
@@ -295,139 +179,178 @@ namespace testlang
                     // Pop '=' operator
                     Next();
 
-                    var rhs = ParseExpression(0);
+                    var rhs = Expression();
 
                     var var = new Variable(lhs.Source);
-                    return new Expression(new VarSetExpression(var, rhs));
-                case TokenType.LeftParen:
-                    return Call();
+                    return new VarSetExpression(var, rhs);
                 default:
                     // Get
                     var var2 = new VarGetExpression(new Variable(lhs.Source));
-                    return new Expression(var2); // TODO
+                    return var2; // TODO
             }
-
-            // if (PeekType() is TokenType.Equal)
-            // {
-            //     // Set
-
-            //     // Pop '=' operator
-            //     Next();
-
-            //     var rhs = ParseExpression(0);
-
-            //     var var = new Variable(lhs.Source);
-            //     return new Expression(new VarSetExpression(var, rhs));
-            // }
-            // else
-            // {
-            //     // Get
-            //     var var = new VarGetExpression(new Variable(lhs.Source));
-            //     return new Expression(var); // TODO
-            // }
         }
 
-        private static Expression ParseUnaryExpression(TokenType lhs)
+        public static ExpressionKind Call(Token token)
         {
-            var (_, rbp) = PrefixBindingPower(lhs);
-            var rhs = ParseExpression(rbp);
-            var op = lhs switch
-            {
-                TokenType.Minus => UnaryOperator.Minus,
-                TokenType.Bang => UnaryOperator.Bang,
-                // TokenType.LeftParen => Call(),
-                _ => throw new ArgumentOutOfRangeException()
-            };
-            return new Expression(new UnaryExpression(op, rhs));
+            // var callee = Expression();
+            // Console.WriteLine(callee);
+            return FinishCall();
         }
 
-        private static Expression Call()
-        {
-            // var expr = ParseExpression(0); // TODO Works???
-
-            if (PeekType() is TokenType.LeftParen)
-            {
-                Next();
-                // expr = FinishCall(expr);
-                // return FinishCall();
-                Expect(TokenType.RightParen);
-                return new Expression(new CallExpression(null, new List<Expression>()));
-            }
-
-            throw new Exception("TODO");
-
-            // return expr;
-        }
-
-        private static Expression FinishCall()
+        private static ExpressionKind FinishCall()
         {
             var args = new List<Expression>();
             if (!Check(TokenType.RightParen))
             {
                 do
                 {
-                    args.Add(ParseExpression(0));
+                    args.Add(Expression());
                 } while (Match(TokenType.Comma));
             }
 
-            Expect(TokenType.RightParen);
+            Consume(TokenType.RightParen, "Expect ')' after arguments");
 
-            return new Expression(new CallExpression(null, args));
+            return new CallExpression(null, args);
         }
 
-        private static (int, int) PrefixBindingPower(TokenType op)
+        private static StatementExpr ExpressionStatement()
         {
-            return (10, 10);
-            // return op switch
-            // {
-            //     TokenType.Minus => Precedence.PREC_UNARY,
-            //     TokenType.Bang => Precedence.PREC_UNARY,
-            //     _ => throw new Exception($"Bad op: {op}")
-            // };
+            var expr = new StatementExpr(Expression());
+            Consume(TokenType.Semicolon, "Expect ';' after expression.");
+            return expr;
         }
 
-        private static (int, int) InfixBindingPower(TokenType op)
+        private static Statement DeclareFun()
         {
-            return (10, 10);
-            // return op switch
-            // {
-            //     TokenType.EqualEqual => Precedence.PREC_EQUALITY,
-            //     TokenType.BangEqual => Precedence.PREC_EQUALITY,
-            //     TokenType.GreaterThan => Precedence.PREC_COMPARISON,
-            //     TokenType.GreaterThanEqual => Precedence.PREC_COMPARISON,
-            //     TokenType.LessThan => Precedence.PREC_COMPARISON,
-            //     TokenType.LessThanEqual => Precedence.PREC_COMPARISON,
-            //     TokenType.Minus => Precedence.PREC_TERM,
-            //     TokenType.Plus => Precedence.PREC_TERM,
-            //     TokenType.Star => Precedence.PREC_FACTOR,
-            //     TokenType.Slash => Precedence.PREC_FACTOR,
-            //     TokenType.Semicolon => Precedence.PREC_NONE,
-            //     TokenType.Equal => Precedence.PREC_ASSIGNMENT, // TODO correct???
-            //     TokenType.LeftParen => Precedence.PREC_CALL, // TODO correct???
-            //     TokenType.RightParen => Precedence.PREC_NONE, // TODO correct???
-            //     _ => throw new Exception($"Bad op: {op}")
-            // };
+            var identifier = Consume(TokenType.Identifier, ""); // TODO
+
+            Consume(TokenType.LeftParen, ""); // TODO
+
+            var parameters = new List<Variable>();
+
+            while (!Check(TokenType.RightParen) && !Check(TokenType.EOF))
+            {
+                var param = Consume(TokenType.Identifier, ""); // TODO
+                parameters.Add(new Variable(param.Source));
+
+                if (Check(TokenType.Comma))
+                {
+                    Next();
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            Consume(TokenType.RightParen, ""); // TODO
+            Consume(TokenType.LeftBrace, ""); // TODO
+
+            var body = BlockStatement();
+
+            var funDecl = new FunctionDeclaration(parameters, body);
+
+            return new FunctionStatement(new Variable(identifier.Source), funDecl);
         }
 
         private static Statement DeclareVar()
         {
-            var ident = Expect(TokenType.Identifier);
+            var ident = Consume(TokenType.Identifier, "Expect identifier"); // TODO
             var initializer = new Expression(new NilLiteral());
 
             if (PeekType() is TokenType.Equal)
             {
                 Next();
-                initializer = ParseExpression(0);
+                initializer = Expression();
             }
 
-            Expect(TokenType.Semicolon);
+            Consume(TokenType.Semicolon, "Expect ';' after expression.");
 
             return new VarStatement(new Variable(ident.Source), initializer);
         }
 
-        private static bool HasNext()
+        private static Expression Expression()
         {
-            return _tokens.Any();
+            return ParsePrecedence(Precedence.Assignment);
+        }
+
+        private static Expression ParsePrecedence(Precedence precedence)
+        {
+            var lhsToken = Next();
+            var prefixRule = ParserRules.GetRule(lhsToken.Type).Prefix; // TODO Previous ???
+
+            if (prefixRule == null)
+            {
+                throw new Exception("Expect expression");
+            }
+
+            var expr = prefixRule(lhsToken);
+
+            while (precedence < ParserRules.GetRule(PeekType()).Precedence)
+            {
+                var rhsToken = Next();
+                var infixRule = ParserRules.GetRule(rhsToken.Type).Infix;
+                var infixExpr = infixRule(rhsToken);
+
+                switch (infixExpr)
+                {
+                    case BinaryExpression binary2:
+                        binary2.Lhs = new Expression(expr);
+                        expr = binary2;
+                        break;
+                    case CallExpression call:
+                        call.Callee = new Expression(expr);
+                        expr = call;
+                        break;
+                    default:
+                        throw new Exception("TODO");
+                }
+            }
+
+            return new Expression(expr);
+        }
+
+        public static ExpressionKind Binary(Token token)
+        {
+            var operatorType = token.Type;
+
+            var rule = ParserRules.GetRule(operatorType);
+            var rhs = ParsePrecedence(rule.Precedence + 1);
+
+            var op = operatorType switch
+            {
+                TokenType.BangEqual => BinaryOperator.BangEqual,
+                TokenType.EqualEqual => BinaryOperator.Equal,
+                TokenType.GreaterThan => BinaryOperator.GreaterThan,
+                TokenType.GreaterThanEqual => BinaryOperator.GreaterThanEqual,
+                TokenType.LessThan => BinaryOperator.LessThan,
+                TokenType.LessThanEqual => BinaryOperator.LessThanEqual,
+                TokenType.Plus => BinaryOperator.Plus,
+                TokenType.Minus => BinaryOperator.Minus,
+                TokenType.Star => BinaryOperator.Multiply,
+                TokenType.Slash => BinaryOperator.Divide,
+            };
+
+            return new BinaryExpression(null, rhs, op);
+        }
+
+        public static ExpressionKind Grouping(Token token)
+        {
+            var expr = Expression();
+            Consume(TokenType.RightParen, "Expect ')' after expression.");
+            return new GroupingExpression(expr);
+        }
+
+
+        public static ExpressionKind Number(Token token)
+        {
+            var number = Convert.ToDouble(token.Source);
+            return new Number(number);
+        }
+
+        private static Token Current()
+        {
+            return _tokens[^1];
         }
 
         private static Token Next()
@@ -437,9 +360,14 @@ namespace testlang
             return popped;
         }
 
-        private static TokenType PeekType()
+        private static Token Consume(TokenType type, string message)
         {
-            return HasNext() ? _tokens[^1].Type : TokenType.EOF;
+            if (PeekType() == type)
+            {
+                return Next();
+            }
+
+            throw new Exception(message); // TODO
         }
 
         private static bool Match(TokenType type)
@@ -448,7 +376,6 @@ namespace testlang
             {
                 return false;
             }
-
             Next();
             return true;
         }
@@ -458,15 +385,14 @@ namespace testlang
             return PeekType() == type;
         }
 
-        private static Token Expect(TokenType expect)
+        private static TokenType PeekType()
         {
-            var next = PeekType();
-            if (!expect.Equals(next))
-            {
-                throw new Exception($"Next is {next} not {expect}"); // TODO
-            }
+            return HasNext() ? _tokens[^1].Type : TokenType.EOF;
+        }
 
-            return Next();
+        private static bool HasNext()
+        {
+            return _tokens.Any();
         }
     }
 }

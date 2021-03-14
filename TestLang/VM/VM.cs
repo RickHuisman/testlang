@@ -6,8 +6,6 @@ namespace testlang
 {
     public class VM
     {
-        // private Chunk _chunk;
-        // private int _ip;
         private SliceableArray<Value> _stack = new SliceableArray<Value>(byte.MaxValue); // TODO size
         private int _stackTop = 0;
         private Dictionary<string, Value> _globals = new Dictionary<string, Value>();
@@ -21,8 +19,10 @@ namespace testlang
             var function = new Compiler(FunctionType.Script).Compile(source);
 
             Push(Value.Obj(function));
-
-            CallValue(Value.Obj(function), 0);
+            var closure = new ObjClosure(function);
+            Pop();
+            Push(Value.Obj(closure));
+            CallValue(Value.Obj(closure), 0);
 
             Run();
         }
@@ -126,6 +126,11 @@ namespace testlang
                         }
                         _frame = _frames[_frameCount - 1];
                         break;
+                    case OpCode.Closure:
+                        var function = ReadConstant().AsFunction;
+                        var closure = new ObjClosure(function);
+                        Push(Value.Obj(closure));
+                        break;
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
@@ -138,9 +143,11 @@ namespace testlang
             {
                 switch (callee.ObjType)
                 {
-                    case ObjType.Function:
-                        return Call(callee.AsFunction, argCount);
-                    // case ObjType.Native:
+                    // case ObjType.Function:
+                    //     return Call(callee.AsFunction, argCount);
+                    case ObjType.Closure:
+                        return Call(callee.AsClosure, argCount);
+                    // case ObjType.Native: // TODO
                     //     {
                     //         Func<int, Value[], Value> native = callee.AsNative;
                     //         Value result = native(argCount, stack.Take(argCount));
@@ -157,11 +164,11 @@ namespace testlang
             return false;
         }
 
-        private bool Call(ObjFunction function, int argCount)
+        private bool Call(ObjClosure closure, int argCount)
         {
-            if (argCount != function.Arity)
+            if (argCount != closure.Function.Arity)
             {
-                throw new Exception($"Expected {function.Arity} arguments but got {argCount}");
+                throw new Exception($"Expected {closure.Function.Arity} arguments but got {argCount}"); // TODO
                 return false;
             }
 
@@ -173,8 +180,9 @@ namespace testlang
 
             _frames[_frameCount++] = new CallFrame
             {
-                Function = function,
-                Ip = 0,
+                Closure = closure,
+                // Ip = closure.Function.Chunk.Code.Count, // TODO ???
+                Ip = 0, // TODO ???
                 Slots = _stack.Slice(_stackTop - argCount - 1)
             };
 
@@ -362,7 +370,7 @@ namespace testlang
 
         private Chunk CurrentChunk()
         {
-            return _frame.Function.Chunk;
+            return _frame.Closure.Function.Chunk;
         }
     }
 }

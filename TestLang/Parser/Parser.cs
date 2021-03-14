@@ -348,9 +348,9 @@ namespace testlang
             return new Number(number);
         }
 
-        private static Token Current()
+        public static ExpressionKind String(Token token)
         {
-            return _tokens[^1];
+            return new StringLiteral(token.Source);
         }
 
         private static Token Next()

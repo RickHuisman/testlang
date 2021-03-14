@@ -40,14 +40,14 @@ namespace testlang
         public ObjFunction() : base(ObjType.Function)
         {
             Arity = 0;
+            UpValueCount = 0;
             Name = null;
             Chunk = new Chunk("test"); // TODO
         }
 
         public int Arity;
-
+        public int UpValueCount;
         public Chunk Chunk;
-
         public ObjString Name;
 
         public override string ToString()
@@ -70,8 +70,19 @@ namespace testlang
         }
     }
 
+    public class ObjClosure : Obj
+    {
+        public ObjFunction Function;
+        
+        public ObjClosure(ObjFunction function) : base(ObjType.Closure)
+        {
+            Function = function;
+        }
+    }
+
     public enum ObjType
     {
+        Closure,
         Function,
         String,
         Native,

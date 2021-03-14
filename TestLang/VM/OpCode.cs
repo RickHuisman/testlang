@@ -24,6 +24,7 @@ namespace testlang
         JumpIfFalse,
         Jump,
         Loop,
-        Call
+        Call,
+        Closure
     }
 }

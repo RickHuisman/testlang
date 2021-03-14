@@ -4,7 +4,7 @@ namespace testlang
 {
     public class CallFrame
     {
-        public ObjFunction Function;
+        public ObjClosure Closure;
         public int Ip;
         public SliceableArray<Value> Slots;
     }

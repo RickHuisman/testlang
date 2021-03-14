@@ -11,22 +11,22 @@ namespace testlang
     {
         private static void RunFile(string path)
         {
-            var input = @"
-fun fib(n) {
-    if (n < 2) return n;
-    return fib(n - 2) + fib(n - 1);
-}
-
-print fib(35);";
-            var test = JsonConvert.SerializeObject(Parser.Parse(input));
-            Console.WriteLine(test);
-
-            var compiler = new Compiler(FunctionType.Script);
-            var fun = compiler.Compile(input);
-            // string source = File.ReadAllText(path, Encoding.UTF8);
-
-            var vm = new VM();
-            vm.Interpret(input);
+//             var input = @"
+// fun fib(n) {
+//     if (n < 2) return n;
+//     return fib(n - 2) + fib(n - 1);
+// }
+//
+// print fib(35);";
+//             var test = JsonConvert.SerializeObject(Parser.Parse(input));
+//             Console.WriteLine(test);
+//
+//             var compiler = new Compiler(FunctionType.Script);
+//             var fun = compiler.Compile(input);
+             var source = File.ReadAllText(path, Encoding.UTF8);
+//
+             var vm = new VM();
+             vm.Interpret(source);
         }
 
         static void Main(string[] args)

@@ -37,6 +37,7 @@ namespace testlang.ast
                 new ParseRule(TokenType.LessThan, null, Parser.Binary, Precedence.Comparison),
                 new ParseRule(TokenType.LessThanEqual, null, Parser.Binary, Precedence.Comparison),
                 new ParseRule(TokenType.Return, null, null, Precedence.None),
+                new ParseRule(TokenType.String, Parser.String, null, Precedence.None),
             };
         }
     }

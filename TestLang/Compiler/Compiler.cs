@@ -13,6 +13,7 @@ namespace testlang
             internal Instance()
             {
                 locals = new Local[byte.MaxValue];
+                upValues = new UpValue[256]; // TODO int ???
                 localCount = 0;
                 scopeDepth = 0;
                 function = new ObjFunction();
@@ -25,6 +26,7 @@ namespace testlang
 
             internal readonly Local[] locals;
             internal int localCount;
+            internal UpValue[] upValues;
             internal int scopeDepth;
 
             internal Instance enclosing;
@@ -139,10 +141,9 @@ namespace testlang
 
             // Create the function object.
             var test = EndCompiler();
-
-            CurrentChunk().WriteChunk((byte)OpCode.Constant);
-            var constant = CurrentChunk().AddConstant(Value.Obj(test));
-            EmitByte((byte)constant);
+            
+            Emit(OpCode.Closure);
+            EmitByte(MakeConstant(Value.Obj(test)));
         }
 
         private void CompileFor(ForStatement forStmt)
@@ -353,6 +354,11 @@ namespace testlang
                         Emit(OpCode.SetLocal);
                         CurrentChunk().WriteChunk((byte)arg);
                     }
+                    else if ((arg = ResolveUpValue(set.Var.Name)) != -1) {
+                        // TODO
+                        // getOp = OP_GET_UPVALUE;
+                        // setOp = OP_SET_UPVALUE;
+                    }
                     else
                     {
                         // Global
@@ -466,6 +472,31 @@ namespace testlang
 
             return -1;
         }
+        
+        private int ResolveUpValue(string varName) {
+            if (current.enclosing == null) return -1;
+
+            var local = ResolveLocal(varName);
+            if (local != -1) {
+                return AddUpValue(local, true);
+            }
+
+            return -1;
+        }
+        
+        private int AddUpValue(int index, bool isLocal) {
+            var upValueCount = current.function.UpValueCount;
+            
+            for (var i = 0; i < upValueCount; i++) {
+                var upValue = current.upValues[i];
+                if (upValue.Index == index && upValue.IsLocal == isLocal) {
+                    return i;
+                }
+            }
+
+            current.upValues[upValueCount] = new UpValue(index, isLocal);
+            return current.function.UpValueCount++;
+        }
 
         private void MarkInitialized()
         {
@@ -508,12 +539,21 @@ namespace testlang
                     EmitConstant(Value.Bool(false));
                     break;
                 case StringLiteral str:
-                    // EmitConstant(Value.Obj(ObjString.CopyString(str.Value)));
-                    throw new ArgumentOutOfRangeException(); // TODO
+                    EmitConstant(Value.Obj(ObjString.CopyString(str.Value)));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(); // TODO
             }
+        }
+        
+        private byte MakeConstant(Value v)
+        {
+            var constant = CurrentChunk().AddConstant(v);
+            if (constant > byte.MaxValue) {
+                throw new Exception("Too many constants in one chunk"); // TODO
+            }
+
+            return (byte)constant;
         }
 
         private void EmitConstant(Value val)

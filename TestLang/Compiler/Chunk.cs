@@ -84,6 +84,12 @@ namespace testlang
                     return SimpleInstruction(builder, "OP_NIL", offset);
                 case OpCode.Return:
                     return SimpleInstruction(builder, "OP_RETURN", offset);
+                case OpCode.Closure:
+                    offset++;
+                    var constant = Code[offset++];
+                    builder.AppendFormat($"{"OP_CLOSURE", -16} {constant, 4:X} {Constants[constant]}\n");
+
+                    return offset;
                 default:
                     builder.AppendLine($"Unknown opcode {instruction}");
                     return offset + 1;
@@ -92,7 +98,7 @@ namespace testlang
         
         private int ConstantInstruction(StringBuilder builder, string name, int offset)
         {
-            byte constant = Code[offset + 1];
+            var constant = Code[offset + 1];
             builder.AppendFormat($"{name,-16} {constant,4:X} '{Constants[constant]}'\n");
             return offset + 2;
         }

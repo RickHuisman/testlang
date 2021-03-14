@@ -68,6 +68,7 @@ namespace testlang
         public Obj AsObj => (Obj) As;
         public ObjType ObjType => AsObj.Type;
         public ObjString AsString => (ObjString) As;
+        public ObjClosure AsClosure => (ObjClosure) As;
         public ObjFunction AsFunction => (ObjFunction) As;
         public Func<int, Value[], Value> AsNative => ((ObjNative) As).Func;
 
@@ -76,6 +77,7 @@ namespace testlang
         public bool IsBool => Type == ValueType.Bool;
         public bool IsObj => Type == ValueType.Obj;
         public bool IsString => IsObj && ObjType == ObjType.String;
+        public bool IsClosure => IsObj && ObjType == ObjType.Closure;
         public bool IsFunction => IsObj && ObjType == ObjType.Function;
         public bool IsNative => IsObj && ObjType == ObjType.Native;
     }

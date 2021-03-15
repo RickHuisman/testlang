@@ -1,10 +1,12 @@
-namespace testlang.ast
+using testlang.Scanner.ast;
+
+namespace testlang.Parser.ast
 {
-    public abstract class Literal : ExpressionKind
+    public interface ILiteral : IExpressionKind
     {
     }
 
-    public class Number : Literal
+    public class Number : ILiteral
     {
         public double Value { get; }
 
@@ -19,19 +21,7 @@ namespace testlang.ast
         }
     }
 
-    public class TrueLiteral : Literal
-    {
-    }
-
-    public class FalseLiteral : Literal
-    {
-    }
-    
-    public class NilLiteral : Literal
-    {
-    }
-    
-    public class StringLiteral : Literal
+    public class StringLiteral : ILiteral
     {
         public string Value { get; }
 
@@ -39,5 +29,22 @@ namespace testlang.ast
         {
             Value = value;
         }
+
+        public override string ToString()
+        {
+            return $"String({Value})";
+        }
+    }
+
+    public class TrueLiteral : ILiteral
+    {
+    }
+
+    public class FalseLiteral : ILiteral
+    {
+    }
+
+    public class NilLiteral : ILiteral
+    {
     }
 }

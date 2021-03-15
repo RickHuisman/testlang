@@ -1,41 +1,42 @@
 using System.Collections.Generic;
 
-namespace testlang.ast
+namespace testlang.Parser.ast
 {
-    public class Statement
+    public abstract class Statement
     {
+        public abstract override string ToString();
     }
 
-    public class Print : Statement
+    public class PrintStatement : Statement
     {
         public Expression Expr { get; }
-        
-        public Print(Expression expr)
+
+        public PrintStatement(Expression expr)
         {
             Expr = expr;
         }
 
         public override string ToString()
         {
-            return $"[Print {Expr}]";
+            return $"{nameof(Expr)}: {Expr}";
         }
     }
 
-    public class StatementExpr : Statement
+    public class ExpressionStatement : Statement
     {
         public Expression Expr { get; }
-        
-        public StatementExpr(Expression expr)
+
+        public ExpressionStatement(Expression expr)
         {
             Expr = expr;
         }
-        
+
         public override string ToString()
         {
-            return $"[Expr {Expr}]";
+            return $"{nameof(Expr)}: {Expr}";
         }
     }
-    
+
     public class VarStatement : Statement
     {
         public Variable Variable { get; }
@@ -46,10 +47,10 @@ namespace testlang.ast
             Variable = variable;
             Expr = expr;
         }
-        
+
         public override string ToString()
         {
-            return $"[VarStatement {Expr}]";
+            return $"{nameof(Variable)}: {Variable}, {nameof(Expr)}: {Expr}";
         }
     }
 
@@ -61,6 +62,152 @@ namespace testlang.ast
         {
             Statements = statements;
         }
+
+        public override string ToString()
+        {
+            return $"{nameof(Statements)}: {Statements}";
+        }
+    }
+
+    public class IfStatement : Statement
+    {
+        public Expression Condition { get; }
+        public Statement ThenClause { get; }
+
+        public IfStatement(Expression condition, Statement thenClause)
+        {
+            Condition = condition;
+            ThenClause = thenClause;
+        }
+
+        public override string ToString()
+        {
+            return $"{nameof(Condition)}: {Condition}, {nameof(ThenClause)}: {ThenClause}";
+        }
+    }
+
+
+    public class IfElseStatement : Statement
+    {
+        public Expression Condition { get; }
+        public Statement ThenClause { get; }
+        public Statement ElseClause { get; }
+
+        public IfElseStatement(Expression condition, Statement thenClause, Statement elseClause)
+        {
+            Condition = condition;
+            ThenClause = thenClause;
+            ElseClause = elseClause;
+        }
+
+        public override string ToString()
+        {
+            return
+                $"{nameof(Condition)}: {Condition}, {nameof(ThenClause)}: {ThenClause}, {nameof(ElseClause)}: {ElseClause}";
+        }
+    }
+
+    public class WhileStatement : Statement
+    {
+        public Expression Condition { get; }
+        public Statement ThenClause { get; }
+
+        public WhileStatement(Expression condition, Statement thenClause)
+        {
+            Condition = condition;
+            ThenClause = thenClause;
+        }
+
+        public override string ToString()
+        {
+            return $"{nameof(Condition)}: {Condition}, {nameof(ThenClause)}: {ThenClause}";
+        }
+    }
+
+    public class ForStatement : Statement
+    {
+        public Statement VarDeclaration { get; }
+        public Expression Condition { get; }
+        public Expression Increment { get; }
+        public Statement Body { get; }
+
+        public ForStatement(Statement varDeclaration, Expression condition, Expression increment, Statement body)
+        {
+            VarDeclaration = varDeclaration;
+            Condition = condition;
+            Increment = increment;
+            Body = body;
+        }
+
+        public override string ToString()
+        {
+            return
+                $"{nameof(VarDeclaration)}: {VarDeclaration}, {nameof(Condition)}: {Condition}, {nameof(Increment)}: {Increment}, {nameof(Body)}: {Body}";
+        }
+    }
+
+    public class FunctionStatement : Statement
+    {
+        public Variable Variable { get; }
+        public FunctionDeclaration Declaration { get; }
+
+        public FunctionStatement(Variable variable, FunctionDeclaration declaration)
+        {
+            Variable = variable;
+            Declaration = declaration;
+        }
+
+        public override string ToString()
+        {
+            return $"{nameof(Variable)}: {Variable}, {nameof(Declaration)}: {Declaration}";
+        }
+    }
+
+    public class ReturnStatement : Statement
+    {
+        public Expression Expr { get; }
+
+        public ReturnStatement(Expression expr)
+        {
+            Expr = expr;
+        }
+
+        public override string ToString()
+        {
+            return $"{nameof(Expr)}: {Expr}";
+        }
+    }
+
+    public class StructStatement : Statement
+    {
+        public Variable Name { get; } // TODO Rename
+        
+        public StructStatement(Variable name)
+        {
+            Name = name;
+        }
+
+        public override string ToString()
+        {
+            return $"{nameof(Name)}: {Name}";
+        }
+    }
+
+    public class FunctionDeclaration
+    {
+        public List<Variable> Parameters { get; }
+        public BlockStatement Body { get; }
+
+        public FunctionDeclaration(List<Variable> parameters, BlockStatement body)
+        {
+            Parameters = parameters;
+            Body = body;
+        }
+
+        public override string ToString()
+        {
+            return $"{nameof(Parameters)}: {Parameters}, {nameof(Body)}: {Body}";
+        }
     }
 
     public class Variable
@@ -71,94 +218,10 @@ namespace testlang.ast
         {
             Name = name;
         }
-    }
 
-    public class IfStatement : Statement
-    {
-        public Expression Condition;
-        public Statement ThenClause;
-
-        public IfStatement(Expression condition, Statement thenClause)
+        public override string ToString()
         {
-            Condition = condition;
-            ThenClause = thenClause;
-        }
-    }
-    
-    
-    public class IfElseStatement : Statement
-    {
-        public Expression Condition;
-        public Statement ThenClause;
-        public Statement ElseClause;
-
-        public IfElseStatement(Expression condition, Statement thenClause, Statement elseClause)
-        {
-            Condition = condition;
-            ThenClause = thenClause;
-            ElseClause = elseClause;
-        }
-    }
-
-    public class WhileStatement : Statement
-    {
-        public Expression Condition;
-        public Statement ThenClause;
-
-        public WhileStatement(Expression condition, Statement thenClause)
-        {
-            Condition = condition;
-            ThenClause = thenClause;
-        }
-    }
-
-    public class ForStatement : Statement
-    {
-        public Statement VarDeclaration;
-        public Expression Condition;
-        public Expression Increment;
-        public Statement Body;
-
-        public ForStatement(Statement varDeclaration, Expression condition, Expression increment, Statement body)
-        {
-            VarDeclaration = varDeclaration;
-            Condition = condition;
-            Increment = increment;
-            Body = body;
-        }
-    }
-
-    public class FunctionStatement : Statement
-    {
-        public Variable Variable;
-        public FunctionDeclaration Declaration;
-
-        public FunctionStatement(Variable variable, FunctionDeclaration declaration)
-        {
-            Variable = variable;
-            Declaration = declaration;
-        }
-    }
-    
-    public class FunctionDeclaration
-    {
-        public List<Variable> Parameters;
-        public BlockStatement Body;
-
-        public FunctionDeclaration(List<Variable> parameters, BlockStatement body)
-        {
-            Parameters = parameters;
-            Body = body;
-        }
-    }
-
-    public class ReturnStatement : Statement
-    {
-        public Expression Expr;
-        
-        public ReturnStatement(Expression expr)
-        {
-            Expr = expr;
+            return $"{nameof(Variable)}: {Name}";
         }
     }
 }

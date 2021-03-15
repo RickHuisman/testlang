@@ -1,6 +1,4 @@
-using System;
-
-namespace testlang
+namespace testlang.Scanner
 {
     public class Token
     {
@@ -13,24 +11,9 @@ namespace testlang
             Source = source;
         }
 
-        public override bool Equals(object other)  // TODO is used
-        {
-            if (other is Token token)
-            {
-                return Type == token.Type && Source == token.Source;
-            }
-
-            return false;
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine((int) Type, Source);
-        }
-
         public override string ToString()
         {
-            return $"Type: {Type} - Source: {Source}";
+            return $"Token (Type: {Type}, Source: {Source})";
         }
     }
 }

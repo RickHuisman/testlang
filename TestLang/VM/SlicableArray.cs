@@ -1,6 +1,6 @@
 using System;
 
-namespace testlang
+namespace testlang.Scanner
 {
     public class SliceableArray<T>
     {

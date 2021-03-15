@@ -1,6 +1,7 @@
 using System;
+using System.Collections.Generic;
 
-namespace testlang
+namespace testlang.Scanner
 {
     public abstract class Obj
     {
@@ -9,7 +10,7 @@ namespace testlang
             Type = type;
         }
 
-        public virtual ObjType Type { get; private set; }
+        public ObjType Type { get; }
     }
 
     public class ObjString : Obj
@@ -37,18 +38,24 @@ namespace testlang
 
     public class ObjFunction : Obj
     {
+        public int Arity;
+        public int UpValueCount;
+        public Chunk Chunk;
+        public ObjString Name { get; private set; }
+
         public ObjFunction() : base(ObjType.Function)
         {
             Arity = 0;
             UpValueCount = 0;
             Name = null;
-            Chunk = new Chunk("test"); // TODO
+            Chunk = new Chunk();
         }
 
-        public int Arity;
-        public int UpValueCount;
-        public Chunk Chunk;
-        public ObjString Name;
+        public void SetName(string name)
+        {
+            Name = ObjString.CopyString(name);
+            Chunk.Name = name;
+        }
 
         public override string ToString()
         {
@@ -58,15 +65,15 @@ namespace testlang
 
     public class ObjNative : Obj
     {
+        public Func<int, Value[], Value> Func { get; set; }
+        
         public ObjNative() : base(ObjType.Native)
         {
         }
 
-        public Func<int, Value[], Value> Func { get; set; }
-
         public override string ToString()
         {
-            return $"<native fn>";
+            return "<native fn>";
         }
     }
 
@@ -80,8 +87,32 @@ namespace testlang
         }
     }
 
+    public class ObjStruct : Obj
+    {
+        public ObjString Name { get; }
+        
+        public ObjStruct(string name) : base(ObjType.Struct)
+        {
+            Name = ObjString.CopyString(name);
+        }
+    }
+
+    public class ObjInstance : Obj
+    {
+        public ObjStruct Struct { get; }
+        public Dictionary<string, Value> Fields { get; }
+        
+        public ObjInstance(ObjStruct objStruct) : base(ObjType.Instance)
+        {
+            Struct = objStruct;
+            Fields = new Dictionary<string, Value>();
+        }
+    }
+
     public enum ObjType
     {
+        Struct,
+        Instance,
         Closure,
         Function,
         String,

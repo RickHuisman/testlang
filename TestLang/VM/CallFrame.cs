@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace testlang
+namespace testlang.Scanner
 {
     public class CallFrame
     {

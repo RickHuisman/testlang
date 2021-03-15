@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using testlang;
+using testlang.Compiler;
+using testlang.Scanner;
 
 namespace UnitTest
 {
@@ -9,7 +10,7 @@ namespace UnitTest
         [Test]
         public void Compile_Block_ReturnsChunk()
         {
-            var expected = new Chunk("test")
+            var expected = new Chunk()
             {
                 Code = new List<byte>
                 {

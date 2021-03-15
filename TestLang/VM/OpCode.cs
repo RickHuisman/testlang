@@ -1,4 +1,4 @@
-namespace testlang
+namespace testlang.Scanner
 {
     public enum OpCode : byte
     {
@@ -25,6 +25,11 @@ namespace testlang
         Jump,
         Loop,
         Call,
-        Closure
+        Closure,
+        GetUpValue,
+        SetUpValue,
+        Struct,
+        GetProperty,
+        SetProperty,
     }
 }

@@ -1,18 +1,4 @@
-fun outer() {
-  var x = "value";
-  fun middle() {
-    fun inner() {
-      print x;
-    }
-
-    print "create inner closure";
-    return inner;
-  }
-
-  print "return from outer";
-  return middle;
-}
-
-var mid = outer();
-var in = mid();
-in();
+struct Toast {}
+var toast = Toast();
+toast.jam = "grape";
+print toast.jam;

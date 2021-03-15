@@ -1,13 +1,21 @@
-using System;
 using System.Collections.Generic;
 
-namespace testlang
+namespace testlang.Scanner
 {
+    /// <summary>
+    /// Class for performing lexical analysis.
+    /// Converts source code to a list of tokens.
+    /// </summary>
     public static class Lexer
     {
         private static int _current;
         private static string _source;
 
+        /// <summary>
+        /// Parses source code and returns tokens.
+        /// </summary>
+        /// <param name="source">The source code to parse.</param>
+        /// <returns>A list of tokens.</returns>
         public static List<Token> Parse(string source)
         {
             ResetLexer();
@@ -28,10 +36,7 @@ namespace testlang
         {
             SkipWhitespace();
 
-            if (IsAtEnd())
-            {
-                return new Token(TokenType.EOF, "");
-            }
+            if (IsAtEnd()) return new Token(TokenType.Eof, "");
 
             var c = Advance();
 
@@ -51,31 +56,25 @@ namespace testlang
                 '+' => MakeToken(TokenType.Plus),
                 '/' => MakeToken(TokenType.Slash),
                 '*' => MakeToken(TokenType.Star),
-                '!' => MakeToken2(Match('=') ? TokenType.BangEqual : TokenType.Bang),
-                '=' => MakeToken2(Match('=') ? TokenType.EqualEqual : TokenType.Equal),
-                '<' => MakeToken2(Match('=') ? TokenType.LessThanEqual : TokenType.LessThan),
-                '>' => MakeToken2(Match('=') ? TokenType.GreaterThanEqual : TokenType.GreaterThan),
+                '%' => MakeToken(TokenType.Percent),
+                '!' => MakeToken(Match('=') ? TokenType.BangEqual : TokenType.Bang),
+                '=' => MakeToken(Match('=') ? TokenType.EqualEqual : TokenType.Equal),
+                '<' => MakeToken(Match('=') ? TokenType.LessThanEqual : TokenType.LessThan),
+                '>' => MakeToken(Match('=') ? TokenType.GreaterThanEqual : TokenType.GreaterThan),
                 '"' => String(),
-                _ => throw new ArgumentException($"Unknown char: {c}")
+                _ => throw new UnexpectedChar(c)
             };
         }
-
-        private static Token String()
+        
+        private static Token Identifier()
         {
-            var start = _current; // TODO maybe - 1
-            while (Peek() != '"' && !IsAtEnd())
-            {
-                Advance();
-            }
+            var start = _current - 1;
+            while (char.IsLetter(Peek()) || char.IsDigit(Peek())) Advance();
 
-            if (IsAtEnd()) throw new ArgumentException("Unterminated string."); // TODO custom error
-
-            var end = _current;
+            var identifier = _source[start.._current];
+            var identifierType = TokenTypeTranslator.FromString(identifier);
             
-            // The closing quote.
-            Advance();
-
-            return new Token(TokenType.String, _source[start..end]);
+            return new Token(identifierType, identifier);
         }
 
         private static Token Number()
@@ -95,30 +94,25 @@ namespace testlang
             return new Token(TokenType.Number, _source[start.._current]);
         }
 
-        private static Token Identifier()
+        private static Token String()
         {
-            var start = _current - 1;
-            while (char.IsLetter(Peek()) || char.IsDigit(Peek())) Advance();
+            var start = _current;
+            while (Peek() != '"' && !IsAtEnd()) Advance();
 
-            var identifier = _source[start.._current];
-            var identifierType = TokenTypeTranslator.FromString(identifier);
+            if (IsAtEnd()) throw new UnterminatedStringException();
+
+            var end = _current;
             
-            return new Token(identifierType, identifier);
+            // The closing quote
+            Advance();
+
+            return new Token(TokenType.String, _source[start..end]);
         }
 
         private static Token MakeToken(TokenType type)
         {
             var c = _source[_current - 1];
             var token = new Token(type, c.ToString());
-            return token;
-        }
-        
-        private static Token MakeToken2(TokenType type)
-        {
-            // TODO This function is only used for having a 2 char source
-            var start = _current - 2;
-            var str = _source[start.._current];
-            var token = new Token(type, str);
             return token;
         }
 
@@ -132,6 +126,13 @@ namespace testlang
                     Advance();
                 }
                 else return;
+                
+                // if (c == '/' && PeekNext() == '/')
+                // {
+                //     // A comment goes until the end of the line.
+                //     while (Peek() != '\n' && !IsAtEnd()) Advance();
+                // }
+                // else return;
             }
         }
 
@@ -140,14 +141,8 @@ namespace testlang
             if (IsAtEnd()) return false;
             if (_source[_current] != expected) return false;
 
-            _current += 1;
+            Advance();
             return true;
-        }
-
-        private static char Advance()
-        {
-            _current += 1;
-            return _source[_current - 1];
         }
 
         private static char PeekNext()
@@ -158,6 +153,12 @@ namespace testlang
         private static char Peek()
         {
             return IsAtEnd() ? '\0' : _source[_current];
+        }
+
+        private static char Advance()
+        {
+            _current += 1;
+            return _source[_current - 1];
         }
 
         private static bool IsAtEnd()

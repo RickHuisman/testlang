@@ -1,54 +1,49 @@
 using System;
-using testlang.ast;
+using testlang.Parser.ast;
+using testlang.Scanner;
 
-namespace testlang
+namespace testlang.Compiler
 {
-    // TODO Make singleton
     public class Compiler
     {
-        private Instance current;
+        private Instance _current;
 
-        class Instance
+        private class Instance
         {
             internal Instance()
             {
-                locals = new Local[byte.MaxValue];
-                upValues = new UpValue[256]; // TODO int ???
-                localCount = 0;
-                scopeDepth = 0;
-                function = new ObjFunction();
+                Locals = new Local[byte.MaxValue];
+                UpValues = new UpValue[256]; // TODO int ???
+                LocalCount = 0;
+                ScopeDepth = 0;
+                Function = new ObjFunction();
 
-                locals[localCount++] = new Local("", 0);
+                Locals[LocalCount++] = new Local("", 0);
             }
 
-            internal ObjFunction function;
-            internal FunctionType type;
+            internal ObjFunction Function;
+            internal FunctionType Type;
 
-            internal readonly Local[] locals;
-            internal int localCount;
-            internal UpValue[] upValues;
-            internal int scopeDepth;
+            internal readonly Local[] Locals;
+            internal int LocalCount;
+            internal UpValue[] UpValues;
+            internal int ScopeDepth;
 
-            internal Instance enclosing;
+            internal Instance Enclosing;
         }
 
         public Compiler(FunctionType type)
         {
-            current = new Instance
+            _current = new Instance
             {
-                type = type,
-                enclosing = null
+                Type = type,
+                Enclosing = null
             };
-        }
-
-        private Chunk CurrentChunk()
-        {
-            return current.function.Chunk;
         }
 
         public ObjFunction Compile(string source)
         {
-            var statements = Parser.Parse(source);
+            var statements = Parser.Parser.Parse(source);
 
             foreach (var statement in statements)
             {
@@ -65,11 +60,11 @@ namespace testlang
                 case VarStatement var:
                     CompileVarExpr(var);
                     break;
-                case StatementExpr expr:
+                case ExpressionStatement expr:
                     CompileExpr(expr.Expr);
                     Emit(OpCode.Pop);
                     break;
-                case Print expr:
+                case PrintStatement expr:
                     CompileExpr(expr.Expr);
                     Emit(OpCode.Print);
                     break;
@@ -95,14 +90,27 @@ namespace testlang
                 case ReturnStatement returnStmt:
                     CompileReturn(returnStmt);
                     break;
+                case StructStatement structStmt:
+                    CompileStruct(structStmt);
+                    break;
                 default:
                     throw new Exception($"TODO {statement}");
             }
         }
 
+        private void CompileStruct(StructStatement structStmt)
+        {
+            var nameConstant = MakeConstant(Value.Obj(ObjString.CopyString(structStmt.Name.Name)));
+            DeclareVar(structStmt.Name);
+            
+            Emit(OpCode.Struct);
+            EmitByte(nameConstant);
+            DefineVar(structStmt.Name);
+        }
+
         private void CompileReturn(ReturnStatement stmt)
         {
-            if (current.type == FunctionType.Script) {
+            if (_current.Type == FunctionType.Script) {
                 throw new Exception("Can't return from top level code."); // TODO
             }
 
@@ -120,19 +128,18 @@ namespace testlang
 
         private void CompileFun(FunctionStatement fun)
         {
-            current = new Instance
+            _current = new Instance
             {
-                type = FunctionType.Function, // TODO
-                enclosing = current,
-                function = { Name = ObjString.CopyString(fun.Variable.Name) },
+                Type = FunctionType.Function, // TODO
+                Enclosing = _current,
             };
+            _current.Function.SetName(fun.Variable.Name);
 
             BeginScope();
 
-            // TODO Parameters
             foreach (var p in fun.Declaration.Parameters)
             {
-                current.function.Arity += 1;
+                _current.Function.Arity += 1;
                 DeclareVar(p);
             }
 
@@ -140,10 +147,15 @@ namespace testlang
             CompileBlock(fun.Declaration.Body);
 
             // Create the function object.
-            var test = EndCompiler();
+            var function = EndCompiler();
             
             Emit(OpCode.Closure);
-            EmitByte(MakeConstant(Value.Obj(test)));
+            EmitByte(MakeConstant(Value.Obj(function)));
+
+            for (var i = 0; i < function.UpValueCount; i++) {
+                EmitByte(_current.UpValues[i].IsLocal ? (byte) 1 : (byte) 0);
+                EmitByte((byte) _current.UpValues[i].Index);
+            }
         }
 
         private void CompileFor(ForStatement forStmt)
@@ -281,7 +293,7 @@ namespace testlang
             // TODO Check if initialized -> if not init with nil
             CompileExpr(var.Expr);
 
-            if (current.scopeDepth > 0)
+            if (_current.ScopeDepth > 0)
             {
                 // Local
                 DeclareVar(var.Variable);
@@ -295,7 +307,7 @@ namespace testlang
 
         private void DefineVar(Variable variable)
         {
-            if (current.scopeDepth > 0) {
+            if (_current.ScopeDepth > 0) {
                 MarkInitialized();
                 return;
             }
@@ -309,12 +321,12 @@ namespace testlang
 
         private void DeclareVar(Variable variable)
         {
-            if (current.scopeDepth == 0) return;
+            if (_current.ScopeDepth == 0) return;
 
-            for (var i = current.localCount - 1; i >= 0; i -= 1)
+            for (var i = _current.LocalCount - 1; i >= 0; i -= 1)
             {
-                var local = current.locals[i];
-                if (local.Depth != -1 && local.Depth < current.scopeDepth)
+                var local = _current.Locals[i];
+                if (local.Depth != -1 && local.Depth < _current.ScopeDepth)
                 {
                     break;
                 }
@@ -331,7 +343,7 @@ namespace testlang
 
         private void AddLocal(string name)
         {
-            current.locals[current.localCount++] = new Local(name, -1);
+            _current.Locals[_current.LocalCount++] = new Local(name, -1);
         }
 
         private void CompileExpr(Expression expr)
@@ -341,20 +353,29 @@ namespace testlang
                 case BinaryExpression binary:
                     CompileBinaryExpr(binary);
                     break;
-                case Literal literal:
+                case UnaryExpression unary:
+                    CompileUnaryExpr(unary);
+                    break;
+                case ILiteral literal:
                     EmitLiteral(literal);
                     break;
                 case VarSetExpression set:
                     CompileExpr(set.Expr);
 
-                    var arg = ResolveLocal(set.Var.Name);
+                    var arg = ResolveLocal(_current, set.Var.Name);
                     if (arg != -1)
                     {
                         // Local
                         Emit(OpCode.SetLocal);
                         CurrentChunk().WriteChunk((byte)arg);
                     }
-                    else if ((arg = ResolveUpValue(set.Var.Name)) != -1) {
+                    else if ((arg = ResolveUpValue(_current, set.Var.Name)) != -1)
+                    {
+                        Emit(OpCode.SetUpValue);
+                        EmitByte((byte) arg);
+                        // Upvalue
+                        // Emit(OpCode.SetUpValue);
+                        // EmitByte((byte) arg);
                         // TODO
                         // getOp = OP_GET_UPVALUE;
                         // setOp = OP_SET_UPVALUE;
@@ -370,12 +391,22 @@ namespace testlang
 
                     break;
                 case VarGetExpression get:
-                    var arg2 = ResolveLocal(get.Var.Name);
+                    var arg2 = ResolveLocal(_current, get.Var.Name);
                     if (arg2 != -1)
                     {
                         // Local
                         Emit(OpCode.GetLocal);
                         CurrentChunk().WriteChunk((byte)arg2); // TODO
+                    }
+                    else if ((arg2 = ResolveUpValue(_current, get.Var.Name)) != -1)
+                    {
+                        // throw new Exception();
+                        // Upvalue
+                        Emit(OpCode.GetUpValue);
+                        EmitByte((byte) arg2);
+                        // TODO
+                        // getOp = OP_GET_UPVALUE;
+                        // setOp = OP_SET_UPVALUE;
                     }
                     else
                     {
@@ -403,6 +434,31 @@ namespace testlang
                     Emit(OpCode.Call);
                     EmitByte((byte)arity);
 
+                    break;
+                case SetExpression set:
+                    // TODO Compile init???
+                    
+                    CompileExpr(set.Expr);
+
+                    //
+                    var name = MakeConstant(Value.Obj(ObjString.CopyString(set.Name)));
+                    
+                    CompileExpr(set.Value);
+                    
+                    Emit(OpCode.SetProperty);
+                    EmitByte(name);
+                    break;
+                case GetExpression get:
+                    // TODO Compile init???
+                    
+                    CompileExpr(get.Expr);
+
+                    //
+                    
+                    var name2 = MakeConstant(Value.Obj(ObjString.CopyString(get.Name)));
+                    
+                    Emit(OpCode.GetProperty);
+                    EmitByte(name2);
                     break;
                 default:
                     throw new Exception($"TODO {expr.Node}");
@@ -454,11 +510,28 @@ namespace testlang
             }
         }
 
-        private int ResolveLocal(string name)
+        private void CompileUnaryExpr(UnaryExpression expr)
         {
-            for (var i = current.localCount - 1; i >= 0; i -= 1)
+            CompileExpr(expr.Unary);
+
+            switch (expr.Operator)
             {
-                var local = current.locals[i];
+                case UnaryOperator.Negate:
+                    Emit(OpCode.Negate);
+                    break;
+                case UnaryOperator.Not:
+                    Emit(OpCode.Not);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        private static int ResolveLocal(Instance instance, string name)
+        {
+            for (var i = instance.LocalCount - 1; i >= 0; i -= 1)
+            {
+                var local = instance.Locals[i];
                 if (name == local.Name)
                 {
                     if (local.Depth == -1)
@@ -473,59 +546,64 @@ namespace testlang
             return -1;
         }
         
-        private int ResolveUpValue(string varName) {
-            if (current.enclosing == null) return -1;
+        private static int ResolveUpValue(Instance instance, string varName) {
+            if (instance.Enclosing == null) return -1;
 
-            var local = ResolveLocal(varName);
+            var local = ResolveLocal(instance.Enclosing, varName);
             if (local != -1) {
-                return AddUpValue(local, true);
+                return AddUpValue(instance, local, true);
+            }
+            
+            var upValue = ResolveUpValue(instance.Enclosing, varName);
+            if (upValue != -1) {
+                return AddUpValue(instance, upValue, false);
             }
 
             return -1;
         }
         
-        private int AddUpValue(int index, bool isLocal) {
-            var upValueCount = current.function.UpValueCount;
+        private static int AddUpValue(Instance instance, int index, bool isLocal) {
+            var upValueCount = instance.Function.UpValueCount;
             
             for (var i = 0; i < upValueCount; i++) {
-                var upValue = current.upValues[i];
+                var upValue = instance.UpValues[i];
                 if (upValue.Index == index && upValue.IsLocal == isLocal) {
                     return i;
                 }
             }
 
-            current.upValues[upValueCount] = new UpValue(index, isLocal);
-            return current.function.UpValueCount++;
+            instance.UpValues[upValueCount] = new UpValue(index, isLocal);
+            return instance.Function.UpValueCount++;
         }
 
         private void MarkInitialized()
         {
-            if (current.scopeDepth == 0)
+            if (_current.ScopeDepth == 0)
             {
                 return;
             }
 
-            current.locals[current.localCount - 1].Depth = current.scopeDepth;
+            _current.Locals[_current.LocalCount - 1].Depth = _current.ScopeDepth;
         }
 
         private void BeginScope()
         {
-            current.scopeDepth += 1;
+            _current.ScopeDepth += 1;
         }
 
         private void EndScope()
         {
-            current.scopeDepth -= 1;
+            _current.ScopeDepth -= 1;
 
-            while (current.localCount > 0 &&
-                   current.locals[current.localCount - 1].Depth > current.scopeDepth)
+            while (_current.LocalCount > 0 &&
+                   _current.Locals[_current.LocalCount - 1].Depth > _current.ScopeDepth)
             {
                 Emit(OpCode.Pop);
-                current.localCount -= 1;
+                _current.LocalCount -= 1;
             }
         }
 
-        private void EmitLiteral(Literal literal)
+        private void EmitLiteral(ILiteral literal)
         {
             switch (literal)
             {
@@ -559,8 +637,8 @@ namespace testlang
         private void EmitConstant(Value val)
         {
             var constant = CurrentChunk().AddConstant(val);
-            CurrentChunk().WriteChunk((byte)OpCode.Constant);
-            CurrentChunk().WriteChunk((byte)constant);
+            EmitByte((byte)OpCode.Constant);
+            EmitByte((byte)constant);
         }
 
         private void EmitByte(byte b)
@@ -577,12 +655,17 @@ namespace testlang
         {
             Emit(OpCode.Nil);
             Emit(OpCode.Return);
-            var fun = current.function;
+            var fun = _current.Function;
             
             Console.WriteLine(CurrentChunk());
 
-            current = current.enclosing;
+            _current = _current.Enclosing;
             return fun;
+        }
+
+        private Chunk CurrentChunk()
+        {
+            return _current.Function.Chunk;
         }
     }
 }

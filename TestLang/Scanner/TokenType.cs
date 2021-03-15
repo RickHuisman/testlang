@@ -1,6 +1,4 @@
-using System;
-
-namespace testlang
+namespace testlang.Scanner
 {
     public enum TokenType
     {
@@ -40,6 +38,7 @@ namespace testlang
         False,
         For,
         Fun,
+        Struct,
         If,
         Nil,
         Or,
@@ -51,7 +50,7 @@ namespace testlang
         Var,
         While,
 
-        EOF,
+        Eof
     }
 
     public static class TokenTypeTranslator
@@ -75,7 +74,8 @@ namespace testlang
                 "true" => TokenType.True,
                 "var" => TokenType.Var,
                 "while" => TokenType.While,
-                _ => TokenType.Identifier,
+                "struct" => TokenType.Struct,
+                _ => TokenType.Identifier
             };
         }
     }

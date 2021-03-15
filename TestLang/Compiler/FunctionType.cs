@@ -1,4 +1,4 @@
-namespace testlang
+namespace testlang.Scanner
 {
     public enum FunctionType
     {

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using testlang.ast;
+using testlang.Parser.ast;
+using testlang.Scanner;
+using testlang.Scanner.ast;
 
-namespace testlang
+namespace testlang.Parser
 {
     public static class Parser
     {
@@ -28,6 +30,9 @@ namespace testlang
         {
             switch (PeekType())
             {
+                case TokenType.Struct:
+                    Next();
+                    return DeclareStruct();
                 case TokenType.Fun:
                     Next();
                     return DeclareFun();
@@ -66,9 +71,9 @@ namespace testlang
             }
         }
 
-        private static Print PrintStatement()
+        private static PrintStatement PrintStatement()
         {
-            var statement = new Print(Expression());
+            var statement = new PrintStatement(Expression());
             Consume(TokenType.Semicolon, "Expect ';' after expression.");
             return statement;
         }
@@ -94,7 +99,7 @@ namespace testlang
         {
             var block = new List<Statement>();
             while (!(PeekType() is TokenType.RightBrace) &&
-                   !(PeekType() is TokenType.EOF))
+                   !(PeekType() is TokenType.Eof))
             {
                 block.Add(Declaration());
             }
@@ -168,7 +173,7 @@ namespace testlang
             return new ReturnStatement(expr);
         }
 
-        public static ExpressionKind ParseVariable(Token lhs)
+        public static IExpressionKind ParseVariable(Token lhs)
         {
             var next = PeekType();
             switch (next)
@@ -190,14 +195,7 @@ namespace testlang
             }
         }
 
-        public static ExpressionKind Call(Token token)
-        {
-            // var callee = Expression();
-            // Console.WriteLine(callee);
-            return FinishCall();
-        }
-
-        private static ExpressionKind FinishCall()
+        public static IExpressionKind Call(Token token)
         {
             var args = new List<Expression>();
             if (!Check(TokenType.RightParen))
@@ -213,11 +211,35 @@ namespace testlang
             return new CallExpression(null, args);
         }
 
-        private static StatementExpr ExpressionStatement()
+        public static IExpressionKind Dot(Token token)
         {
-            var expr = new StatementExpr(Expression());
+            var name = Consume(TokenType.Identifier, "Expect property name after '.'.");
+
+            if (Match(TokenType.Equal))
+            {
+                // SETTER
+                var value = Expression();
+                return new SetExpression(name.Source, null, value);
+            }
+
+            // GETTER
+            return new GetExpression(name.Source, null);
+        }
+
+        private static ExpressionStatement ExpressionStatement()
+        {
+            var expr = new ExpressionStatement(Expression());
             Consume(TokenType.Semicolon, "Expect ';' after expression.");
             return expr;
+        }
+
+        private static Statement DeclareStruct()
+        {
+            var structName = Consume(TokenType.Identifier, "Expect struct name.");
+
+            Consume(TokenType.LeftBrace, "Expect '{' before struct body.");
+            Consume(TokenType.RightBrace, "Expect '}' after struct body.");
+            return new StructStatement(new Variable(structName.Source));
         }
 
         private static Statement DeclareFun()
@@ -228,7 +250,7 @@ namespace testlang
 
             var parameters = new List<Variable>();
 
-            while (!Check(TokenType.RightParen) && !Check(TokenType.EOF))
+            while (!Check(TokenType.RightParen) && !Check(TokenType.Eof))
             {
                 var param = Consume(TokenType.Identifier, ""); // TODO
                 parameters.Add(new Variable(param.Source));
@@ -237,10 +259,7 @@ namespace testlang
                 {
                     Next();
                 }
-                else
-                {
-                    break;
-                }
+                else break;
             }
 
             Consume(TokenType.RightParen, ""); // TODO
@@ -253,7 +272,7 @@ namespace testlang
             return new FunctionStatement(new Variable(identifier.Source), funDecl);
         }
 
-        private static Statement DeclareVar()
+        private static VarStatement DeclareVar()
         {
             var ident = Consume(TokenType.Identifier, "Expect identifier"); // TODO
             var initializer = new Expression(new NilLiteral());
@@ -302,6 +321,14 @@ namespace testlang
                         call.Callee = new Expression(expr);
                         expr = call;
                         break;
+                    case SetExpression set:
+                        set.Expr = new Expression(expr);
+                        expr = set;
+                        break;
+                    case GetExpression get:
+                        get.Expr = new Expression(expr);
+                        expr = get;
+                        break;
                     default:
                         throw new Exception("TODO");
                 }
@@ -310,7 +337,7 @@ namespace testlang
             return new Expression(expr);
         }
 
-        public static ExpressionKind Binary(Token token)
+        public static IExpressionKind Binary(Token token)
         {
             var operatorType = token.Type;
 
@@ -329,28 +356,56 @@ namespace testlang
                 TokenType.Minus => BinaryOperator.Minus,
                 TokenType.Star => BinaryOperator.Multiply,
                 TokenType.Slash => BinaryOperator.Divide,
+                TokenType.Percent => BinaryOperator.Modulo,
+                _ => throw new Exception() // TODO
             };
 
-            return new BinaryExpression(null, rhs, op);
+            return new BinaryExpression(op, null, rhs);
         }
 
-        public static ExpressionKind Grouping(Token token)
+        public static IExpressionKind Unary(Token token)
+        {
+            var operatorType = token.Type;
+            
+            var expr = Expression();
+
+            var op = operatorType switch
+            {
+                TokenType.Minus => UnaryOperator.Negate,
+                TokenType.Bang => UnaryOperator.Not,
+                _ => throw new Exception() // TODO
+            };
+
+            return new UnaryExpression(op, expr);
+        }
+
+        public static IExpressionKind Grouping(Token token)
         {
             var expr = Expression();
             Consume(TokenType.RightParen, "Expect ')' after expression.");
             return new GroupingExpression(expr);
         }
 
-
-        public static ExpressionKind Number(Token token)
+        public static IExpressionKind Number(Token token)
         {
             var number = Convert.ToDouble(token.Source);
             return new Number(number);
         }
 
-        public static ExpressionKind String(Token token)
+        public static IExpressionKind String(Token token)
         {
             return new StringLiteral(token.Source);
+        }
+        
+        public static IExpressionKind Literal(Token token)
+        {
+            return token.Type switch
+            {
+                TokenType.False => new FalseLiteral(),
+                TokenType.True => new TrueLiteral(),
+                TokenType.Nil => new NilLiteral(),
+                _ => throw new Exception("Unreachable code reached"), // TODO
+            };
         }
 
         private static Token Next()
@@ -387,7 +442,7 @@ namespace testlang
 
         private static TokenType PeekType()
         {
-            return HasNext() ? _tokens[^1].Type : TokenType.EOF;
+            return HasNext() ? _tokens[^1].Type : TokenType.Eof;
         }
 
         private static bool HasNext()

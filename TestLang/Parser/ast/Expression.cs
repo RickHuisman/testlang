@@ -1,12 +1,16 @@
 using System.Collections.Generic;
 
-namespace testlang.ast
+namespace testlang.Parser.ast
 {
+    public interface IExpressionKind
+    {
+    }
+
     public class Expression
     {
-        public ExpressionKind Node;
+        public IExpressionKind Node;
 
-        public Expression(ExpressionKind node)
+        public Expression(IExpressionKind node)
         {
             Node = node;
         }
@@ -17,9 +21,23 @@ namespace testlang.ast
         }
     }
 
-    public abstract class ExpressionKind
+    public class BinaryExpression : IExpressionKind
     {
+        public BinaryOperator Operator;
+        public Expression Lhs;
+        public Expression Rhs;
 
+        public BinaryExpression(BinaryOperator op, Expression lhs, Expression rhs)
+        {
+            Operator = op;
+            Lhs = lhs;
+            Rhs = rhs;
+        }
+
+        public override string ToString()
+        {
+            return $"Lhs: {Lhs} - Rhs: {Rhs} - Operator: {Operator}";
+        }
     }
 
     public enum BinaryOperator
@@ -34,28 +52,10 @@ namespace testlang.ast
         Plus,
         Divide,
         Multiply,
+        Modulo
     }
 
-    public class BinaryExpression : ExpressionKind
-    {
-        public Expression Lhs;
-        public Expression Rhs;
-        public BinaryOperator Operator;
-
-        public BinaryExpression(Expression lhs, Expression rhs, BinaryOperator op)
-        {
-            Lhs = lhs;
-            Rhs = rhs;
-            Operator = op;
-        }
-
-        public override string ToString()
-        {
-            return $"Lhs: {Lhs} - Rhs: {Rhs} - Operator: {Operator}";
-        }
-    }
-
-    public class GroupingExpression : ExpressionKind
+    public class GroupingExpression : IExpressionKind
     {
         public Expression Expr;
 
@@ -67,11 +67,11 @@ namespace testlang.ast
 
     public enum UnaryOperator
     {
-        Minus,
-        Bang
+        Negate,
+        Not
     }
 
-    public class UnaryExpression : ExpressionKind
+    public class UnaryExpression : IExpressionKind
     {
         public UnaryOperator Operator;
         public Expression Unary;
@@ -88,41 +88,17 @@ namespace testlang.ast
         }
     }
 
-    public class VarExpression : ExpressionKind
+    public class VarGetExpression : IExpressionKind
     {
         public Variable Var;
-
-        public VarExpression(Variable var)
-        {
-            Var = var;
-        }
-    }
-
-    public class VarAssignExpression : ExpressionKind
-    {
-        public Variable Var;
-        public Expression Expr;
-
-        public VarAssignExpression(Variable var, Expression expr)
-        {
-            Var = var;
-            Expr = expr;
-        }
-    }
-
-    public class VarGetExpression : ExpressionKind
-    {
-        public Variable Var;
-        // public Expression Expr;
 
         public VarGetExpression(Variable var)
         {
             Var = var;
-            // Expr = expr;
         }
     }
 
-    public class VarSetExpression : ExpressionKind
+    public class VarSetExpression : IExpressionKind
     {
         public Variable Var;
         public Expression Expr;
@@ -134,7 +110,7 @@ namespace testlang.ast
         }
     }
 
-    public class CallExpression : ExpressionKind
+    public class CallExpression : IExpressionKind
     {
         public Expression Callee;
         public List<Expression> Arguments;
@@ -143,6 +119,32 @@ namespace testlang.ast
         {
             Callee = callee;
             Arguments = arguments;
+        }
+    }
+    
+    public class SetExpression : IExpressionKind
+    {
+        public string Name { get; }
+        public Expression Expr { get; set; }
+        public Expression Value { get; } // TODO Name
+
+        public SetExpression(string name, Expression expr, Expression value)
+        {
+            Name = name;
+            Expr = expr;
+            Value = value;
+        }
+    }
+
+    public class GetExpression : IExpressionKind
+    {
+        public string Name { get; }
+        public Expression Expr { get; set; }
+
+        public GetExpression(string name, Expression expr)
+        {
+            Name = name;
+            Expr = expr;
         }
     }
 }

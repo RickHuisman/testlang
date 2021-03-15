@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
-namespace testlang
+namespace testlang.Scanner
 {
     public class VM
     {
@@ -14,9 +13,14 @@ namespace testlang
         private CallFrame _frame;
         private int _frameCount;
 
+        public VM()
+        {
+            DefineNative("clock", ClockNative);
+        }
+
         public void Interpret(string source)
         {
-            var function = new Compiler(FunctionType.Script).Compile(source);
+            var function = new Compiler.Compiler(FunctionType.Script).Compile(source);
 
             Push(Value.Obj(function));
             var closure = new ObjClosure(function);
@@ -118,6 +122,10 @@ namespace testlang
                     case OpCode.Nil:
                         Push(Value.Nil);
                         break;
+                    case OpCode.Struct:
+                        var name = ReadConstant().AsString;
+                        Push(Value.Obj(new ObjStruct(name.ToString())));
+                        break;
                     case OpCode.Call:
                         var argCount = ReadByte();
                         if (!CallValue(Peek(argCount), argCount))
@@ -131,6 +139,39 @@ namespace testlang
                         var closure = new ObjClosure(function);
                         Push(Value.Obj(closure));
                         break;
+                    case OpCode.SetProperty:
+                        // if (!Peek(0).IsInstance) {
+                        //     throw new Exception("Only instances have properties."); // TODO
+                        // }
+                        
+                        var instance2 = Peek(1).AsInstance;
+                        var methodName = ReadString().ToString();
+                        var foo = Peek(0);
+                        instance2.Fields.Add(
+                            methodName,
+                            foo
+                        );
+
+                        var value3 = Pop();
+                        Pop();
+                        Push(value3);
+                        break;
+                    case OpCode.GetProperty:
+                        // if (!Peek(0).IsInstance) {
+                        //     throw new Exception("Only instances have properties."); // TODO
+                        // }
+
+                        var instance = Peek(0).AsInstance;
+                        var name2 = ReadString().ToString();
+
+                        if (instance.Fields.ContainsKey(name2))
+                        {
+                            Pop(); // Instance
+                            Push(instance.Fields[name2]);
+                            break;
+                        }
+
+                        throw new Exception("Undefined property"); // TODO
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
@@ -143,25 +184,23 @@ namespace testlang
             {
                 switch (callee.ObjType)
                 {
-                    // case ObjType.Function:
-                    //     return Call(callee.AsFunction, argCount);
+                    case ObjType.Struct:
+                        var structCall = callee.AsStruct;
+                        _stack[_stackTop] = Value.Obj(new ObjInstance(structCall));
+                        _stackTop -= argCount - 1; // TODO Works???
+                        return true;
                     case ObjType.Closure:
                         return Call(callee.AsClosure, argCount);
-                    // case ObjType.Native: // TODO
-                    //     {
-                    //         Func<int, Value[], Value> native = callee.AsNative;
-                    //         Value result = native(argCount, stack.Take(argCount));
-                    //         stackTop -= argCount + 1;
-                    //         Push(result);
-                    //         return true;
-                    //     }
-                    default:
-                        break;
+                    case ObjType.Native:
+                        var native = callee.AsNative;
+                        var result = native(argCount, _stack.Take(argCount));
+                        _stackTop -= argCount + 1;
+                        Push(result);
+                        return true;
                 }
             }
 
             throw new Exception("Can only call functions and classes");
-            return false;
         }
 
         private bool Call(ObjClosure closure, int argCount)
@@ -275,7 +314,7 @@ namespace testlang
 
         private void Print()
         {
-            Console.WriteLine($"Print: {Pop()}");
+            Console.WriteLine($"PrintStatement: {Pop()}");
         }
 
         private void Add()
@@ -328,6 +367,11 @@ namespace testlang
             _stackTop = 0;
             _frameCount = 0;
         }
+        
+        private ObjString ReadString()
+        {
+            return CurrentChunk().Constants[ReadByte()].AsString;
+        }
 
         private Value ReadConstant()
         {
@@ -365,12 +409,26 @@ namespace testlang
 
         private Value Pop()
         {
-            return _stack[--_stackTop]; // TODO switch --
+            return _stack[--_stackTop];
         }
 
         private Chunk CurrentChunk()
         {
             return _frame.Closure.Function.Chunk;
+        }
+        
+        private void DefineNative(string name, Func<int, Value[], Value> func)
+        {
+            Push(Value.Obj(ObjString.CopyString(name)));
+            Push(Value.Obj(new ObjNative { Func = func }));
+            _globals[_stack[0].AsString.ToString()] = _stack[1];
+            Pop();
+            Pop();
+        }
+        
+        private Value ClockNative(int argCount, Value[] args)
+        {
+            return Value.Number(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         }
     }
 }

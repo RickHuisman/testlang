@@ -1,6 +1,6 @@
 using System;
 
-namespace testlang
+namespace testlang.Scanner
 {
     public class Value
     {
@@ -71,6 +71,8 @@ namespace testlang
         public ObjClosure AsClosure => (ObjClosure) As;
         public ObjFunction AsFunction => (ObjFunction) As;
         public Func<int, Value[], Value> AsNative => ((ObjNative) As).Func;
+        public ObjStruct AsStruct => (ObjStruct) As;
+        public ObjInstance AsInstance => (ObjInstance) As;
 
         public bool IsNumber => Type == ValueType.Number;
         public bool IsNil => Type == ValueType.Nil;
@@ -80,6 +82,8 @@ namespace testlang
         public bool IsClosure => IsObj && ObjType == ObjType.Closure;
         public bool IsFunction => IsObj && ObjType == ObjType.Function;
         public bool IsNative => IsObj && ObjType == ObjType.Native;
+        public bool IsStruct => IsObj && ObjType == ObjType.Struct;
+        public bool IsInstance => IsObj && ObjType == ObjType.Instance;
     }
 
     public enum ValueType

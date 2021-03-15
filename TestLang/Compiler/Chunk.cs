@@ -1,20 +1,19 @@
-using System;
 using System.Text;
 using System.Collections.Generic;
 
-namespace testlang
+namespace testlang.Scanner
 {
     public class Chunk
     {
-        private string Name;
+        public string Name;
         public List<byte> Code { get; set; }
         private List<int> Lines = new List<int>();
         public List<Value> Constants { get; }
 
-        public Chunk(string name)
+        public Chunk()
         {
-            Name = name;
-            Code = new List<byte>(); 
+            Name = "";
+            Code = new List<byte>();
             Constants = new List<Value>();
         }
 
@@ -84,10 +83,29 @@ namespace testlang
                     return SimpleInstruction(builder, "OP_NIL", offset);
                 case OpCode.Return:
                     return SimpleInstruction(builder, "OP_RETURN", offset);
+                case OpCode.Struct:
+                    return ConstantInstruction(builder, "OP_STRUCT", offset);
+                case OpCode.GetUpValue:
+                    return ByteInstruction(builder, "OP_GET_UPVALUE", offset);
+                case OpCode.SetUpValue:
+                    return ByteInstruction(builder, "OP_SET_UPVALUE", offset);
+                case OpCode.GetProperty:
+                    return ConstantInstruction(builder, "OP_GET_PROPERTY", offset);
+                case OpCode.SetProperty:
+                    return ConstantInstruction(builder, "OP_SET_PROPERTY", offset);
                 case OpCode.Closure:
                     offset++;
                     var constant = Code[offset++];
-                    builder.AppendFormat($"{"OP_CLOSURE", -16} {constant, 4:X} {Constants[constant]}\n");
+                    builder.AppendFormat($"{"OP_CLOSURE",-16} {constant,4:X} {Constants[constant]}\n");
+
+                    var function = Constants[constant].AsFunction;
+                    for (var j = 0; j < function.UpValueCount; j++)
+                    {
+                        var isLocal = Code[offset++] == 1;
+                        var index = Code[offset++];
+                        builder.AppendFormat("{0:X4} |                     {1} {2}\n",
+                            offset - 2, isLocal ? "local" : "upvalue", index);
+                    }
 
                     return offset;
                 default:
@@ -95,28 +113,28 @@ namespace testlang
                     return offset + 1;
             }
         }
-        
+
         private int ConstantInstruction(StringBuilder builder, string name, int offset)
         {
             var constant = Code[offset + 1];
             builder.AppendFormat($"{name,-16} {constant,4:X} '{Constants[constant]}'\n");
             return offset + 2;
         }
-        
+
         private int ByteInstruction(StringBuilder builder, string name, int offset)
         {
             var slot = Code[offset + 1];
             builder.AppendLine($"{name,-16} {slot,4:X}");
             return offset + 2;
         }
-        
+
         private int JumpInstruction(StringBuilder builder, string name, int sign, int offset)
         {
-            ushort jump = (ushort)((Code[offset + 1] << 8) | Code[offset + 2]);
-            builder.AppendLine($"{name,-16} {offset,4:X} -> {offset+ 3 + sign * jump,4:X}");
+            var jump = (ushort) ((Code[offset + 1] << 8) | Code[offset + 2]);
+            builder.AppendLine($"{name,-16} {offset,4:X} -> {offset + 3 + sign * jump,4:X}");
             return offset + 3;
         }
-        
+
         private static int SimpleInstruction(StringBuilder builder, string name, int offset)
         {
             builder.AppendLine(name);

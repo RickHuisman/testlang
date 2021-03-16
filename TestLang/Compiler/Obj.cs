@@ -90,10 +90,12 @@ namespace testlang.Scanner
     public class ObjStruct : Obj
     {
         public ObjString Name { get; }
-        
+        public Dictionary<string, Value> Methods { get; } // TODO Value???
+ 
         public ObjStruct(string name) : base(ObjType.Struct)
         {
             Name = ObjString.CopyString(name);
+            Methods = new Dictionary<string, Value>();
         }
     }
 
